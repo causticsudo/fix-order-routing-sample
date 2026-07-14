@@ -125,22 +125,6 @@ dotnet test FixOrderRouting.sln
 - Calculate exposure: `Σ(buy_price × buy_qty) - Σ(sell_price × sell_qty)`
 - Respond with `ExecutionReport` (ExecType: `New` or `Rejected`)
 
-## 🏛️ Architecture Decisions
-
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed architecture rationale.
-
-### Key Decisions
-
-| Aspect | Choice | Why |
-|--------|--------|-----|
-| **Pattern** | Vertical Sliced + DDD | Independent feature evolution |
-| **API** | REST + MediatR | Standard market approach, type-safe |
-| **Persistence** | PostgreSQL + Event Store | ACID, rastreability, replay capability |
-| **Auth** | Keycloak + Redis Cache | Production-ready, zero-cost |
-| **Tracing** | Jaeger + OpenTelemetry | Distributed tracing, vendor-neutral |
-| **Communication** | FIX 4.4 | Market-standard protocol |
-| **Reliability** | Outbox Pattern | Guaranteed delivery |
-
 ## 🧪 Testing
 
 ```bash
@@ -201,10 +185,6 @@ SELECT * FROM logs WHERE correlation_id = '...'
 3. ✅ Push to registry (ghcr.io)
 4. ✅ Create GitHub releases
 
-## 🛠️ Contributing
-
-See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for development guidelines.
-
 ### Branch Strategy (GitFlow)
 
 ```
@@ -217,14 +197,6 @@ feature/* (individual features)
   └── feature/order-accumulator
 ```
 
-### Development Workflow
-
-1. Create feature branch: `git checkout -b feature/my-feature`
-2. Make changes and commit
-3. Run tests: `dotnet test FixOrderRouting.sln`
-4. Create PR to `develop`
-5. After review, merge to `main` for release
-
 ## 📚 Documentation
 
 - [Setup Guide](docs/SETUP.md) — Local environment setup
@@ -233,16 +205,6 @@ feature/* (individual features)
 - [Contributing](docs/CONTRIBUTING.md) — Development guidelines
 - [C4 Diagrams](docs/C4/) — System architecture visualizations
 
-## 📞 Support
-
-- **Issues**: [GitHub Issues](https://github.com/your-org/fix-order-routing-sample/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-org/fix-order-routing-sample/discussions)
-- **Email**: trading-infrastructure@example.com
-
 ## 📄 License
 
-MIT License — See [LICENSE](LICENSE) file for details.
-
----
-
-**Built with** ❤️ for capital markets professionals.
+MIT License — See [LICENSE](LICENSE).
