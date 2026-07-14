@@ -1,0 +1,40 @@
+assembly-versioning-scheme: MajorMinorPatchTag
+build-metadata-padding: 0
+commits-since-version-source-padding: 0
+commit-date-format: yyyy-MM-dd
+commit-sha-length: 0
+legacy-semver-padding: 0
+major-version-bump-message: \+semver:\s?(breaking|major)
+minor-version-bump-message: \+semver:\s?(feature|minor)
+patch-version-bump-message: \+semver:\s?(fix|patch)
+no-bump-message: \+semver:\s?none
+tag-prefix: ^v
+continuous-deployment-fallback-tag: ci
+tag-pre-release-weight: 55000
+update-build-number: true
+
+branches:
+  main:
+    mode: Mainline
+    tag: ''
+    increment: Patch
+  develop:
+    mode: ContinuousDeployment
+    tag: alpha
+    increment: Minor
+  'feature/*':
+    mode: ContinuousDeployment
+    tag: feature
+    increment: Minor
+  'release/*':
+    mode: Mainline
+    tag: rc
+    increment: Patch
+  'hotfix/*':
+    mode: Mainline
+    tag: ''
+    increment: Patch
+  'support/*':
+    mode: Mainline
+    tag: ''
+    increment: Patch
