@@ -8,12 +8,11 @@ on:
 
 env:
   DOTNET_VERSION: '8.0'
-  REGISTRY: ghcr.io
   DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
 
 jobs:
-  create-release:
+  build-and-release:
     runs-on: ubuntu-latest
 
     steps:
@@ -46,61 +45,41 @@ jobs:
 
     - name: Create Release Artifacts
       run: |
-        mkdir -p ./artifacts
+        mkdir -p ./release-files
         cd ./publish
-        tar -czf ../artifacts/order-generator-api.tar.gz order-generator/
-        tar -czf ../artifacts/order-accumulator-worker.tar.gz order-accumulator/
+        tar -czf ../release-files/order-generator-api.tar.gz order-generator/
+        tar -czf ../release-files/order-accumulator-worker.tar.gz order-accumulator/
         cd ..
+        cp .docker/docker-compose.yml release-files/
+        cp .docker/Dockerfile.generator release-files/
+        cp .docker/Dockerfile.accumulator release-files/
+        cp .env.example release-files/.env
+
+    - name: Generate Release Tag
+      if: github.ref == 'refs/heads/main'
+      id: tag
+      run: |
+        TAG="v$(date +%Y%m%d)-$(git rev-parse --short HEAD)"
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
+        echo "Generated tag: $TAG"
 
     - name: Create GitHub Release
-      if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
       with:
+        tag_name: ${{ steps.tag.outputs.tag || github.ref_name }}
         files: |
-          artifacts/order-generator-api.tar.gz
-          artifacts/order-accumulator-worker.tar.gz
+          release-files/order-generator-api.tar.gz
+          release-files/order-accumulator-worker.tar.gz
+          release-files/docker-compose.yml
+          release-files/Dockerfile.generator
+          release-files/Dockerfile.accumulator
+          release-files/.env
+        generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Upload artifacts
+    - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
         name: release-artifacts
-        path: artifacts/
-
-  docker-build:
-    runs-on: ubuntu-latest
-    needs: create-release
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Login to Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ${{ env.REGISTRY }}
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Build and push OrderGenerator API
-      uses: docker/build-push-action@v6
-      with:
-        context: .
-        file: .docker/Dockerfile.generator
-        push: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/') }}
-        tags: |
-          ${{ env.REGISTRY }}/${{ github.repository }}/order-generator:latest
-          ${{ env.REGISTRY }}/${{ github.repository }}/order-generator:${{ github.sha }}
-
-    - name: Build and push OrderAccumulator Worker
-      uses: docker/build-push-action@v6
-      with:
-        context: .
-        file: .docker/Dockerfile.accumulator
-        push: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/') }}
-        tags: |
-          ${{ env.REGISTRY }}/${{ github.repository }}/order-accumulator:latest
-          ${{ env.REGISTRY }}/${{ github.repository }}/order-accumulator:${{ github.sha }}
+        path: release-files/
