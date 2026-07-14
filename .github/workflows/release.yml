@@ -3,8 +3,6 @@ name: Release
 on:
   push:
     branches: [ main ]
-    tags:
-      - 'v*'
 
 env:
   DOTNET_VERSION: '8.0'
@@ -66,9 +64,10 @@ jobs:
         echo "Generated tag: $TAG"
 
     - name: Create GitHub Release
-      uses: softprops/action-gh-release@v1
+      if: github.ref == 'refs/heads/main'
+      uses: softprops/action-gh-release@v2
       with:
-        tag_name: ${{ steps.tag.outputs.tag || github.ref_name }}
+        tag_name: ${{ steps.tag.outputs.tag }}
         files: |
           release-files/order-generator-api.tar.gz
           release-files/order-accumulator-worker.tar.gz
