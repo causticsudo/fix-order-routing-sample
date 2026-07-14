@@ -1,0 +1,125 @@
+version: '3.8'
+
+services:
+  postgresql:
+    image: postgres:15-alpine
+    container_name: fix-postgres
+    environment:
+      POSTGRES_DB: fixorderrouting
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fix-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: fix-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fix-network
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: fix-jaeger
+    environment:
+      COLLECTOR_ZIPKIN_HTTP_PORT: 9411
+    ports:
+      - "6831:6831/udp"
+      - "16686:16686"
+    networks:
+      - fix-network
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: fix-keycloak
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgresql:5432/keycloak
+      KC_DB_USERNAME: postgres
+      KC_DB_PASSWORD: postgres
+      KC_HOSTNAME: localhost
+      KC_PROXY: edge
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    command: ["start-dev"]
+    networks:
+      - fix-network
+
+  order-generator-api:
+    build:
+      context: ../
+      dockerfile: .docker/Dockerfile.generator
+    container_name: fix-generator-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:5000
+      ConnectionStrings__DefaultConnection: "Host=postgresql;Port=5432;Database=fixorderrouting;Username=postgres;Password=postgres"
+      Redis__Host: redis
+      Redis__Port: 6379
+      Keycloak__Authority: http://keycloak:8080/realms/fix-order-routing
+      Keycloak__ClientId: fix-order-generator
+      Keycloak__ClientSecret: secret
+      Jaeger__ServiceName: OrderGenerator
+      Jaeger__Host: jaeger
+      Jaeger__Port: 6831
+      OrderAccumulator__Host: order-accumulator-worker
+      OrderAccumulator__Port: 9000
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    networks:
+      - fix-network
+
+  order-accumulator-worker:
+    build:
+      context: ../
+      dockerfile: .docker/Dockerfile.accumulator
+    container_name: fix-accumulator-worker
+    environment:
+      DOTNET_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: "Host=postgresql;Port=5432;Database=fixorderrouting;Username=postgres;Password=postgres"
+      Jaeger__ServiceName: OrderAccumulator
+      Jaeger__Host: jaeger
+      Jaeger__Port: 6831
+      FIX__AcceptorHost: 0.0.0.0
+      FIX__AcceptorPort: 9000
+    ports:
+      - "9000:9000"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    networks:
+      - fix-network
+
+volumes:
+  postgres_data:
+
+networks:
+  fix-network:
+    driver: bridge
