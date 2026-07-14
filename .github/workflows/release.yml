@@ -23,6 +23,7 @@ jobs:
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
+        cache: true
 
     - name: Restore dependencies
       run: dotnet restore FixOrderRouting.sln
@@ -55,7 +56,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: release-artifacts
         path: artifacts/
@@ -78,7 +79,7 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Build and push OrderGenerator API
-      uses: docker/build-push-action@v5
+      uses: docker/build-push-action@v6
       with:
         context: .
         file: .docker/Dockerfile.generator
@@ -88,7 +89,7 @@ jobs:
           ${{ env.REGISTRY }}/${{ github.repository }}/order-generator:${{ github.sha }}
 
     - name: Build and push OrderAccumulator Worker
-      uses: docker/build-push-action@v5
+      uses: docker/build-push-action@v6
       with:
         context: .
         file: .docker/Dockerfile.accumulator
