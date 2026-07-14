@@ -9,6 +9,8 @@ on:
 env:
   DOTNET_VERSION: '8.0'
   REGISTRY: ghcr.io
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
 
 jobs:
   create-release:
@@ -18,6 +20,12 @@ jobs:
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0
+
+    - name: Clear dotnet cache
+      run: |
+        rm -rf ~/.dotnet
+        rm -rf ~/.nuget
+      continue-on-error: true
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
