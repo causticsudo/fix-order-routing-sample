@@ -55,3 +55,54 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+launch.json
+tasks.json
+
+# Rider
+.idea/
+*.sln.iml
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+appsettings.Development.json
+launchSettings.json
+
+# Docker
+docker-compose.override.yml
+*.log
+
+# Test coverage
+coverage/
+*.coverage
+*.coveragexml
+
+# Local environment
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+.AppleDouble
+.LSOverride
+
+# Build output
+publish/
+TestResults/
+
+# Temporary
+tmp/
+temp/
+*.tmp
+
+# IDE Settings
+.editorconfig.local

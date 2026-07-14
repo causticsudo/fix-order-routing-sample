@@ -1,0 +1,22 @@
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /app
+
+COPY ["src/OrderGenerator.Api/OrderGenerator.Api.csproj", "src/OrderGenerator.Api/"]
+COPY ["src/OrderGenerator.Application/OrderGenerator.Application.csproj", "src/OrderGenerator.Application/"]
+COPY ["src/OrderGenerator.Domain/OrderGenerator.Domain.csproj", "src/OrderGenerator.Domain/"]
+COPY ["src/OrderGenerator.Infra/OrderGenerator.Infra.csproj", "src/OrderGenerator.Infra/"]
+COPY ["src/OrderGenerator.SharedKernel/OrderGenerator.SharedKernel.csproj", "src/OrderGenerator.SharedKernel/"]
+
+RUN dotnet restore "src/OrderGenerator.Api/OrderGenerator.Api.csproj"
+
+COPY . .
+
+RUN dotnet publish "src/OrderGenerator.Api/OrderGenerator.Api.csproj" -c Release -o /app/publish
+
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
+WORKDIR /app
+
+COPY --from=build /app/publish .
+
+EXPOSE 5000
+ENTRYPOINT ["dotnet", "OrderGenerator.Api.dll"]
