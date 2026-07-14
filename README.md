@@ -185,18 +185,6 @@ SELECT * FROM logs WHERE correlation_id = '...'
 3. ✅ Push to registry (ghcr.io)
 4. ✅ Create GitHub releases
 
-### Branch Strategy (GitFlow)
-
-```
-main (release ready)
-  ↑
-develop (integration branch)
-  ↑
-feature/* (individual features)
-  ├── feature/order-generator-backend
-  └── feature/order-accumulator
-```
-
 ## 📚 Documentation
 
 - [Setup Guide](docs/SETUP.md) — Local environment setup
