@@ -18,6 +18,7 @@ WORKDIR /app
 
 COPY --from=build /app/publish .
 COPY src/OrderGenerator.Api/initiator.cfg .
+COPY .docker/FIX44.xml .
 
 EXPOSE 5000
 ENTRYPOINT ["dotnet", "OrderGenerator.Api.dll"]

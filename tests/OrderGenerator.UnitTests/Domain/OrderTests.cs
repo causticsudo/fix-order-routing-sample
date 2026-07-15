@@ -1,4 +1,5 @@
 using OrderGenerator.Domain.Aggregates;
+using OrderGenerator.Domain.Aggregates.Enumerators;
 using OrderGenerator.Domain.ValueObjects;
 using Xunit;
 
@@ -45,7 +46,7 @@ public class OrderTests
         order.MarkAsSubmitted();
 
         Assert.Equal(OrderStatus.Submitted, order.Status);
-        Assert.NotNull(order.UpdatedAt);
+        Assert.NotEqual(default, order.UpdatedAt);
     }
 
     [Fact]

@@ -1,4 +1,4 @@
-namespace OrderGenerator.Domain.Aggregates;
+namespace OrderGenerator.Domain.Aggregates.Enumerators;
 
 public enum OrderStatus
 {
