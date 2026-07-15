@@ -20,6 +20,22 @@ public class OrderAccumulatorDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.ClOrdId).IsRequired().HasMaxLength(255);
+
+            entity.Property(e => e.Symbol)
+                .HasConversion(ValueConverters.SymbolConverter())
+                .HasMaxLength(10);
+
+            entity.Property(e => e.Side)
+                .HasConversion(ValueConverters.OrderSideConverter())
+                .HasMaxLength(10);
+
+            entity.Property(e => e.Quantity)
+                .HasConversion(ValueConverters.QuantityConverter());
+
+            entity.Property(e => e.Price)
+                .HasConversion(ValueConverters.PriceConverter())
+                .HasPrecision(18, 2);
+
             entity.Property(e => e.Status).IsRequired();
             entity.Property(e => e.ExecutedAt).IsRequired();
             entity.Property(e => e.RejectionReason).HasMaxLength(500);

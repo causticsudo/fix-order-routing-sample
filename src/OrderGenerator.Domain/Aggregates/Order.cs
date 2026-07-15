@@ -1,4 +1,4 @@
-
+using OrderGenerator.Domain.Aggregates.Enumerators;
 using OrderGenerator.Domain.ValueObjects;
 
 namespace OrderGenerator.Domain.Aggregates;
@@ -18,11 +18,15 @@ public sealed class Order
 
     public IReadOnlyList<object> GetDomainEvents() => _domainEvents.AsReadOnly();
 
-    public void ClearDomainEvents() => _domainEvents.Clear();
-
-    private Order() { }
-
-    private Order(Guid id, Symbol symbol, OrderSide side, Quantity quantity, Price price, OrderStatus status, DateTime createdAt, DateTime updatedAt)
+    private Order(
+        Guid id,
+        Symbol symbol,
+        OrderSide side,
+        Quantity quantity,
+        Price price,
+        OrderStatus status,
+        DateTime createdAt,
+        DateTime updatedAt)
     {
         Id = id;
         Symbol = symbol;
