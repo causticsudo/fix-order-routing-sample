@@ -5,18 +5,15 @@ namespace OrderGenerator.Domain.Aggregates;
 
 public sealed class Order
 {
-    private readonly List<object> _domainEvents = [];
-
     public Guid Id { get; private set; }
     public Symbol Symbol { get; private set; } = null!;
     public OrderSide Side { get; private set; } = null!;
     public Quantity Quantity { get; private set; } = null!;
     public Price Price { get; private set; } = null!;
     public OrderStatus Status { get; private set; }
+    public string? RejectionReason { get; private set; }
     public DateTime CreatedAt { get; private set; }
     public DateTime UpdatedAt { get; private set; }
-
-    public IReadOnlyList<object> GetDomainEvents() => _domainEvents.AsReadOnly();
 
     private Order(
         Guid id,
@@ -49,14 +46,6 @@ public sealed class Order
 
         var order = new Order(id, symbol, side, quantity, price, OrderStatus.Created, now, now);
 
-        order._domainEvents.Add(new OrderCreatedEvent(
-            order.Id,
-            order.Symbol,
-            order.Side,
-            order.Quantity,
-            order.Price,
-            order.CreatedAt));
-
         return ResultExtensions.Success(order);
     }
 
@@ -75,6 +64,7 @@ public sealed class Order
     public void MarkAsRejected(string reason)
     {
         Status = OrderStatus.Rejected;
+        RejectionReason = reason;
         UpdatedAt = DateTime.UtcNow;
     }
 }
