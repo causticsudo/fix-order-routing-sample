@@ -12,29 +12,34 @@ namespace OrderGenerator.UnitTests.Application;
 public class CreateOrderCommandHandlerTests
 {
     private readonly Mock<IOrderRepository> _repositoryMock;
-    private readonly Mock<IOrderCache> _cacheMock;
-    private readonly CreateOrderCommandHandler _handler;
+    private readonly Mock<IFixOrderInitiator> _fixInitiatorMock;
+    private readonly Mock<IOrderEventRepository> _orderEventRepositoryMock;
+    private readonly CreateOrderCommandHandler _sut;
 
     public CreateOrderCommandHandlerTests()
     {
         _repositoryMock = new Mock<IOrderRepository>();
-        _cacheMock = new Mock<IOrderCache>();
-        _handler = new CreateOrderCommandHandler(_repositoryMock.Object, _cacheMock.Object);
+        _fixInitiatorMock = new Mock<IFixOrderInitiator>();
+        _orderEventRepositoryMock = new Mock<IOrderEventRepository>();
+        _sut = new CreateOrderCommandHandler(_repositoryMock.Object, _fixInitiatorMock.Object, _orderEventRepositoryMock.Object);
     }
 
     [Fact]
     public async Task Handle_WithValidCommand_CreatesOrderSuccessfully()
     {
+        _fixInitiatorMock.Setup(f => f.SendNewOrderSingleAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
         var command = new CreateOrderCommand("PETR4", "BUY", 100, 20.50m);
 
-        var response = await _handler.Handle(command, CancellationToken.None);
+        var response = await _sut.Handle(command, CancellationToken.None);
 
         response.Should().NotBeNull();
         response.Symbol.Should().Be("PETR4");
         response.Side.Should().Be("BUY");
         response.Quantity.Should().Be(100L);
         response.Price.Should().Be(20.50m);
-        response.Status.Should().Be("Created");
+        response.Status.Should().Be("Submitted");
         response.OrderId.Should().NotBe(Guid.Empty);
         response.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
     }
@@ -42,21 +47,28 @@ public class CreateOrderCommandHandlerTests
     [Fact]
     public async Task Handle_WithValidCommand_PersistsOrderToRepository()
     {
+        _fixInitiatorMock.Setup(f => f.SendNewOrderSingleAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
         var command = new CreateOrderCommand("VALE3", "SELL", 50, 15.75m);
 
-        await _handler.Handle(command, CancellationToken.None);
+        await _sut.Handle(command, CancellationToken.None);
 
         _repositoryMock.Verify(r => r.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Once);
+        _repositoryMock.Verify(r => r.UpdateAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task Handle_WithValidCommand_CachesOrder()
+    public async Task Handle_WithValidCommand_PersistsCreatedAndSubmittedEvents()
     {
-        var command = new CreateOrderCommand("VIIA4", "BUY", 25, 99.99m);
+        _fixInitiatorMock.Setup(f => f.SendNewOrderSingleAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
-        await _handler.Handle(command, CancellationToken.None);
+        var command = new CreateOrderCommand("PETR4", "BUY", 100, 20.50m);
 
-        _cacheMock.Verify(c => c.Set(It.IsAny<Order>(), null), Times.Once);
+        await _sut.Handle(command, CancellationToken.None);
+
+        _orderEventRepositoryMock.Verify(r => r.AddAsync(It.IsAny<OrderEvent>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
     }
 
     [Fact]
@@ -64,7 +76,7 @@ public class CreateOrderCommandHandlerTests
     {
         var command = new CreateOrderCommand("INVALID", "BUY", 100, 20.50m);
 
-        var exception = await Assert.ThrowsAsync<ValidationException>(() => _handler.Handle(command, CancellationToken.None));
+        var exception = await Assert.ThrowsAsync<ValidationException>(() => _sut.Handle(command, CancellationToken.None));
         exception.Message.Should().Contain("Symbol must be one of: PETR4, VALE3, VIIA4");
     }
 
@@ -73,7 +85,7 @@ public class CreateOrderCommandHandlerTests
     {
         var command = new CreateOrderCommand("PETR4", "INVALID", 100, 20.50m);
 
-        var exception = await Assert.ThrowsAsync<ValidationException>(() => _handler.Handle(command, CancellationToken.None));
+        var exception = await Assert.ThrowsAsync<ValidationException>(() => _sut.Handle(command, CancellationToken.None));
         exception.Message.Should().Contain("Side must be either BUY or SELL");
     }
 
@@ -82,7 +94,7 @@ public class CreateOrderCommandHandlerTests
     {
         var command = new CreateOrderCommand("PETR4", "BUY", 0, 20.50m);
 
-        var exception = await Assert.ThrowsAsync<ValidationException>(() => _handler.Handle(command, CancellationToken.None));
+        var exception = await Assert.ThrowsAsync<ValidationException>(() => _sut.Handle(command, CancellationToken.None));
         exception.Message.Should().Contain("Quantity must be greater than 0");
     }
 
@@ -91,7 +103,7 @@ public class CreateOrderCommandHandlerTests
     {
         var command = new CreateOrderCommand("PETR4", "BUY", 100_000, 20.50m);
 
-        var exception = await Assert.ThrowsAsync<ValidationException>(() => _handler.Handle(command, CancellationToken.None));
+        var exception = await Assert.ThrowsAsync<ValidationException>(() => _sut.Handle(command, CancellationToken.None));
         exception.Message.Should().Contain("Quantity must be less than 100,000");
     }
 
@@ -100,7 +112,7 @@ public class CreateOrderCommandHandlerTests
     {
         var command = new CreateOrderCommand("PETR4", "BUY", 100, 0);
 
-        var exception = await Assert.ThrowsAsync<ValidationException>(() => _handler.Handle(command, CancellationToken.None));
+        var exception = await Assert.ThrowsAsync<ValidationException>(() => _sut.Handle(command, CancellationToken.None));
         exception.Message.Should().Contain("Price must be greater than 0");
     }
 
@@ -109,7 +121,7 @@ public class CreateOrderCommandHandlerTests
     {
         var command = new CreateOrderCommand("PETR4", "BUY", 100, 1_000);
 
-        var exception = await Assert.ThrowsAsync<ValidationException>(() => _handler.Handle(command, CancellationToken.None));
+        var exception = await Assert.ThrowsAsync<ValidationException>(() => _sut.Handle(command, CancellationToken.None));
         exception.Message.Should().Contain("Price must be less than 1,000");
     }
 
@@ -118,7 +130,7 @@ public class CreateOrderCommandHandlerTests
     {
         var command = new CreateOrderCommand("PETR4", "BUY", 100, 20.555m);
 
-        var exception = await Assert.ThrowsAsync<ValidationException>(() => _handler.Handle(command, CancellationToken.None));
+        var exception = await Assert.ThrowsAsync<ValidationException>(() => _sut.Handle(command, CancellationToken.None));
         exception.Message.Should().Contain("Price must be a multiple of 0.01");
     }
 
@@ -129,7 +141,7 @@ public class CreateOrderCommandHandlerTests
     {
         var command = new CreateOrderCommand(symbol, "BUY", 100, 20.50m);
 
-        var response = await _handler.Handle(command, CancellationToken.None);
+        var response = await _sut.Handle(command, CancellationToken.None);
 
         response.Symbol.Should().Be("PETR4");
     }
@@ -141,7 +153,7 @@ public class CreateOrderCommandHandlerTests
     {
         var command = new CreateOrderCommand("PETR4", side, 100, 20.50m);
 
-        var response = await _handler.Handle(command, CancellationToken.None);
+        var response = await _sut.Handle(command, CancellationToken.None);
 
         response.Side.Should().Be("BUY");
     }

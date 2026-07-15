@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\OrderAccumulator.Worker\OrderAccumulator.Worker.csproj" />
+    <ProjectReference Include="..\..\src\OrderGenerator.Application\OrderGenerator.Application.csproj" />
   </ItemGroup>
 
 </Project>

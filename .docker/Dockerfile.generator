@@ -5,7 +5,7 @@ COPY ["src/OrderGenerator.Api/OrderGenerator.Api.csproj", "src/OrderGenerator.Ap
 COPY ["src/OrderGenerator.Application/OrderGenerator.Application.csproj", "src/OrderGenerator.Application/"]
 COPY ["src/OrderGenerator.Domain/OrderGenerator.Domain.csproj", "src/OrderGenerator.Domain/"]
 COPY ["src/OrderGenerator.Infra/OrderGenerator.Infra.csproj", "src/OrderGenerator.Infra/"]
-COPY ["src/OrderGenerator.SharedKernel/OrderGenerator.SharedKernel.csproj", "src/OrderGenerator.SharedKernel/"]
+COPY ["src/FixOrderRouting.SharedKernel/FixOrderRouting.SharedKernel.csproj", "src/FixOrderRouting.SharedKernel/"]
 
 RUN dotnet restore "src/OrderGenerator.Api/OrderGenerator.Api.csproj"
 
@@ -17,6 +17,8 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app
 
 COPY --from=build /app/publish .
+COPY src/OrderGenerator.Api/initiator.cfg .
+COPY .docker/FIX44.xml .
 
 EXPOSE 5000
 ENTRYPOINT ["dotnet", "OrderGenerator.Api.dll"]

@@ -6,14 +6,14 @@ namespace OrderGenerator.UnitTests.Application;
 
 public class CreateOrderCommandValidatorTests
 {
-    private readonly CreateOrderCommandValidator _validator = new();
+    private readonly CreateOrderCommandValidator _sut = new();
 
     [Fact]
     public async Task Validate_WithValidCommand_ReturnsNoErrors()
     {
         var command = new CreateOrderCommand("PETR4", "BUY", 100, 20.50m);
 
-        var result = await _validator.ValidateAsync(command);
+        var result = await _sut.ValidateAsync(command);
 
         result.IsValid.Should().Be(true);
         result.Errors.Should().HaveCount(0);
@@ -24,7 +24,7 @@ public class CreateOrderCommandValidatorTests
     {
         var command = new CreateOrderCommand("", "BUY", 100, 20.50m);
 
-        var result = await _validator.ValidateAsync(command);
+        var result = await _sut.ValidateAsync(command);
 
         result.IsValid.Should().Be(false);
         result.Errors.Any(e => e.ErrorMessage.Contains("Symbol is required")).Should().Be(true);
@@ -38,7 +38,7 @@ public class CreateOrderCommandValidatorTests
     {
         var command = new CreateOrderCommand(symbol, "BUY", 100, 20.50m);
 
-        var result = await _validator.ValidateAsync(command);
+        var result = await _sut.ValidateAsync(command);
 
         result.IsValid.Should().Be(false);
         result.Errors.Any(e => e.ErrorMessage.Contains("Symbol must be one of: PETR4, VALE3, VIIA4")).Should().Be(true);
@@ -52,7 +52,7 @@ public class CreateOrderCommandValidatorTests
     {
         var command = new CreateOrderCommand(symbol, "BUY", 100, 20.50m);
 
-        var result = await _validator.ValidateAsync(command);
+        var result = await _sut.ValidateAsync(command);
 
         result.Errors.Any(e => e.ErrorMessage.Contains("Symbol must be one of")).Should().Be(false);
     }
@@ -62,7 +62,7 @@ public class CreateOrderCommandValidatorTests
     {
         var command = new CreateOrderCommand("PETR4", "", 100, 20.50m);
 
-        var result = await _validator.ValidateAsync(command);
+        var result = await _sut.ValidateAsync(command);
 
         result.IsValid.Should().Be(false);
         result.Errors.Any(e => e.ErrorMessage.Contains("Side is required")).Should().Be(true);
@@ -76,7 +76,7 @@ public class CreateOrderCommandValidatorTests
     {
         var command = new CreateOrderCommand("PETR4", side, 100, 20.50m);
 
-        var result = await _validator.ValidateAsync(command);
+        var result = await _sut.ValidateAsync(command);
 
         result.IsValid.Should().Be(false);
         result.Errors.Any(e => e.ErrorMessage.Contains("Side must be either BUY or SELL")).Should().Be(true);
@@ -89,7 +89,7 @@ public class CreateOrderCommandValidatorTests
     {
         var command = new CreateOrderCommand("PETR4", side, 100, 20.50m);
 
-        var result = await _validator.ValidateAsync(command);
+        var result = await _sut.ValidateAsync(command);
 
         result.Errors.Any(e => e.ErrorMessage.Contains("Side must be either BUY or SELL")).Should().Be(false);
     }
@@ -99,7 +99,7 @@ public class CreateOrderCommandValidatorTests
     {
         var command = new CreateOrderCommand("PETR4", "BUY", 0, 20.50m);
 
-        var result = await _validator.ValidateAsync(command);
+        var result = await _sut.ValidateAsync(command);
 
         result.IsValid.Should().Be(false);
         result.Errors.Any(e => e.ErrorMessage.Contains("Quantity must be greater than 0")).Should().Be(true);
@@ -110,7 +110,7 @@ public class CreateOrderCommandValidatorTests
     {
         var command = new CreateOrderCommand("PETR4", "BUY", -1, 20.50m);
 
-        var result = await _validator.ValidateAsync(command);
+        var result = await _sut.ValidateAsync(command);
 
         result.IsValid.Should().Be(false);
         result.Errors.Any(e => e.ErrorMessage.Contains("Quantity must be greater than 0")).Should().Be(true);
@@ -121,7 +121,7 @@ public class CreateOrderCommandValidatorTests
     {
         var command = new CreateOrderCommand("PETR4", "BUY", 100_000, 20.50m);
 
-        var result = await _validator.ValidateAsync(command);
+        var result = await _sut.ValidateAsync(command);
 
         result.IsValid.Should().Be(false);
         result.Errors.Any(e => e.ErrorMessage.Contains("Quantity must be less than 100,000")).Should().Be(true);
@@ -132,7 +132,7 @@ public class CreateOrderCommandValidatorTests
     {
         var command = new CreateOrderCommand("PETR4", "BUY", 100_001, 20.50m);
 
-        var result = await _validator.ValidateAsync(command);
+        var result = await _sut.ValidateAsync(command);
 
         result.IsValid.Should().Be(false);
         result.Errors.Any(e => e.ErrorMessage.Contains("Quantity must be less than 100,000")).Should().Be(true);
@@ -146,7 +146,7 @@ public class CreateOrderCommandValidatorTests
     {
         var command = new CreateOrderCommand("PETR4", "BUY", quantity, 20.50m);
 
-        var result = await _validator.ValidateAsync(command);
+        var result = await _sut.ValidateAsync(command);
 
         result.Errors.Any(e => e.ErrorMessage.Contains("Quantity must")).Should().Be(false);
     }
@@ -156,7 +156,7 @@ public class CreateOrderCommandValidatorTests
     {
         var command = new CreateOrderCommand("PETR4", "BUY", 100, 0);
 
-        var result = await _validator.ValidateAsync(command);
+        var result = await _sut.ValidateAsync(command);
 
         result.IsValid.Should().Be(false);
         result.Errors.Any(e => e.ErrorMessage.Contains("Price must be greater than 0")).Should().Be(true);
@@ -167,7 +167,7 @@ public class CreateOrderCommandValidatorTests
     {
         var command = new CreateOrderCommand("PETR4", "BUY", 100, -1);
 
-        var result = await _validator.ValidateAsync(command);
+        var result = await _sut.ValidateAsync(command);
 
         result.IsValid.Should().Be(false);
         result.Errors.Any(e => e.ErrorMessage.Contains("Price must be greater than 0")).Should().Be(true);
@@ -178,7 +178,7 @@ public class CreateOrderCommandValidatorTests
     {
         var command = new CreateOrderCommand("PETR4", "BUY", 100, 1_000);
 
-        var result = await _validator.ValidateAsync(command);
+        var result = await _sut.ValidateAsync(command);
 
         result.IsValid.Should().Be(false);
         result.Errors.Any(e => e.ErrorMessage.Contains("Price must be less than 1,000")).Should().Be(true);
@@ -189,7 +189,7 @@ public class CreateOrderCommandValidatorTests
     {
         var command = new CreateOrderCommand("PETR4", "BUY", 100, 1_000.01m);
 
-        var result = await _validator.ValidateAsync(command);
+        var result = await _sut.ValidateAsync(command);
 
         result.IsValid.Should().Be(false);
         result.Errors.Any(e => e.ErrorMessage.Contains("Price must be less than 1,000")).Should().Be(true);
@@ -200,7 +200,7 @@ public class CreateOrderCommandValidatorTests
     {
         var command = new CreateOrderCommand("PETR4", "BUY", 100, 20.555m);
 
-        var result = await _validator.ValidateAsync(command);
+        var result = await _sut.ValidateAsync(command);
 
         result.IsValid.Should().Be(false);
         result.Errors.Any(e => e.ErrorMessage.Contains("Price must be a multiple of 0.01")).Should().Be(true);
@@ -214,7 +214,7 @@ public class CreateOrderCommandValidatorTests
     public async Task Validate_WithValidPrices_ReturnsValid(decimal price)
     {
         var command = new CreateOrderCommand("PETR4", "BUY", 100, price);
-        var result = await _validator.ValidateAsync(command);
+        var result = await _sut.ValidateAsync(command);
         result.IsValid.Should().Be(true);
     }
 
@@ -223,7 +223,7 @@ public class CreateOrderCommandValidatorTests
     {
         var command = new CreateOrderCommand("INVALID", "INVALID", 0, 0);
 
-        var result = await _validator.ValidateAsync(command);
+        var result = await _sut.ValidateAsync(command);
 
         result.IsValid.Should().Be(false);
         result.Errors.Count.Should().BeGreaterThan(1);

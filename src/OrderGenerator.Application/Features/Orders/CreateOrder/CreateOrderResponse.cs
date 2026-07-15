@@ -7,4 +7,5 @@ public sealed record CreateOrderResponse(
     long Quantity,
     decimal Price,
     string Status,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string? RejectionReason = null);

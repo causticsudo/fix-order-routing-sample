@@ -8,6 +8,7 @@ public sealed class OrderGeneratorDbContext : DbContext
     public OrderGeneratorDbContext(DbContextOptions<OrderGeneratorDbContext> options) : base(options) { }
 
     public DbSet<Order> Orders { get; set; } = null!;
+    public DbSet<OrderEvent> OrderEvents { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -40,11 +41,40 @@ public sealed class OrderGeneratorDbContext : DbContext
                 .HasConversion<string>()
                 .HasMaxLength(50);
 
+            builder.Property(o => o.RejectionReason)
+                .HasMaxLength(1000);
+
             builder.Property(o => o.CreatedAt);
             builder.Property(o => o.UpdatedAt);
 
             builder.HasIndex(o => o.CreatedAt);
             builder.HasIndex(o => o.Symbol);
+        });
+
+        modelBuilder.Entity<OrderEvent>(builder =>
+        {
+            builder.HasKey(e => e.Id);
+
+            builder.Property(e => e.Id)
+                .ValueGeneratedNever();
+
+            builder.Property(e => e.OrderId);
+
+            builder.Property(e => e.CorrelationKey)
+                .HasMaxLength(100);
+
+            builder.Property(e => e.EventType)
+                .HasConversion<string>()
+                .HasMaxLength(50);
+
+            builder.Property(e => e.Details)
+                .HasMaxLength(1000);
+
+            builder.Property(e => e.OccurredAt);
+
+            builder.HasIndex(e => e.OrderId);
+            builder.HasIndex(e => e.CorrelationKey);
+            builder.HasIndex(e => e.OccurredAt);
         });
     }
 }

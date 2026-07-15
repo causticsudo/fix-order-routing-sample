@@ -1,8 +1,10 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using OrderGenerator.Application.Common;
 using OrderGenerator.Application.Exceptions;
 using OrderGenerator.Application.Features.Orders.CreateOrder;
+using OrderGenerator.Application.Features.Orders.GetEvents;
 using OrderGenerator.Application.Features.Orders.GetOrder;
 
 namespace OrderGenerator.Api.Controllers.v1.Orders;
@@ -73,6 +75,37 @@ public class OrdersController(IMediator mediator, ILogger<OrdersController> logg
         catch (Exception ex)
         {
             logger.LogError(ex, "Error fetching order");
+            return StatusCode(500, new { error = "Internal server error" });
+        }
+    }
+
+    [HttpGet("events")]
+    [ProducesResponseType(typeof(PagedResponse<OrderEventResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetEvents(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] Guid? orderId = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            logger.LogInformation("GetEvents request: Page={Page}, PageSize={PageSize}, OrderId={OrderId}", page, pageSize, orderId);
+
+            var query = new GetEventsQuery(page, pageSize, orderId);
+            var response = await mediator.Send(query, cancellationToken);
+
+            return Ok(response);
+        }
+        catch (ValidationException ex)
+        {
+            logger.LogWarning("Validation error: {Error}", ex.Message);
+            return BadRequest(new { errors = ex.Errors });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error fetching events");
             return StatusCode(500, new { error = "Internal server error" });
         }
     }

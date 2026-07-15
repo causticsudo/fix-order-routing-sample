@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>CS1591</NoWarn>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
@@ -15,7 +16,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\OrderAccumulator.Domain\OrderAccumulator.Domain.csproj" />
-    <ProjectReference Include="..\OrderAccumulator.SharedKernel\OrderAccumulator.SharedKernel.csproj" />
   </ItemGroup>
 
 </Project>

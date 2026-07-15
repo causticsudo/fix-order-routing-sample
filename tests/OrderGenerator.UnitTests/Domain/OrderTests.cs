@@ -1,4 +1,5 @@
 using OrderGenerator.Domain.Aggregates;
+using OrderGenerator.Domain.Aggregates.Enumerators;
 using OrderGenerator.Domain.ValueObjects;
 using Xunit;
 
@@ -23,29 +24,13 @@ public class OrderTests
     }
 
     [Fact]
-    public void CreateOrder_RaisesOrderCreatedEvent()
-    {
-        var symbol = Symbol.Create("VALE3");
-        var side = OrderSide.Create("SELL");
-        var quantity = Quantity.Create(50);
-        var price = Price.Create(15.75m);
-
-        var result = Order.Create(symbol, side, quantity, price);
-        var order = (result as ResultSuccess<Order>)!.Value;
-
-        var events = order.GetDomainEvents();
-        Assert.Single(events);
-        Assert.IsType<OrderCreatedEvent>(events[0]);
-    }
-
-    [Fact]
     public void MarkAsSubmitted_ChangesStatus()
     {
         var order = CreateTestOrder();
         order.MarkAsSubmitted();
 
         Assert.Equal(OrderStatus.Submitted, order.Status);
-        Assert.NotNull(order.UpdatedAt);
+        Assert.NotEqual(default, order.UpdatedAt);
     }
 
     [Fact]
@@ -64,6 +49,7 @@ public class OrderTests
         order.MarkAsRejected("Insufficient funds");
 
         Assert.Equal(OrderStatus.Rejected, order.Status);
+        Assert.Equal("Insufficient funds", order.RejectionReason);
     }
 
     private static Order CreateTestOrder()

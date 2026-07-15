@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fix major="4" minor="4">
+  <fields>
+    <field number="1" name="Account" type="STRING"/>
+    <field number="6" name="AvgPx" type="PRICE"/>
+    <field number="7" name="BeginSeqNo" type="SEQNUM"/>
+    <field number="8" name="BeginString" type="STRING"/>
+    <field number="9" name="BodyLength" type="LENGTH"/>
+    <field number="10" name="CheckSum" type="STRING"/>
+    <field number="11" name="ClOrdID" type="STRING"/>
+    <field number="14" name="CumQty" type="QTY"/>
+    <field number="15" name="Currency" type="CURRENCY"/>
+    <field number="16" name="EndSeqNo" type="SEQNUM"/>
+    <field number="17" name="ExecID" type="STRING"/>
+    <field number="21" name="HandlInst" type="CHAR"/>
+    <field number="34" name="MsgSeqNum" type="SEQNUM"/>
+    <field number="35" name="MsgType" type="STRING"/>
+    <field number="36" name="NewSeqNo" type="SEQNUM"/>
+    <field number="37" name="OrderID" type="STRING"/>
+    <field number="38" name="OrderQty" type="QTY"/>
+    <field number="39" name="OrdStatus" type="CHAR"/>
+    <field number="40" name="OrdType" type="CHAR"/>
+    <field number="44" name="Price" type="PRICE"/>
+    <field number="45" name="RefSeqNum" type="SEQNUM"/>
+    <field number="49" name="SenderCompID" type="STRING"/>
+    <field number="50" name="SenderSubID" type="STRING"/>
+    <field number="52" name="SendingTime" type="UTCTIMESTAMP"/>
+    <field number="54" name="Side" type="CHAR"/>
+    <field number="55" name="Symbol" type="STRING"/>
+    <field number="56" name="TargetCompID" type="STRING"/>
+    <field number="57" name="TargetSubID" type="STRING"/>
+    <field number="58" name="Text" type="STRING"/>
+    <field number="59" name="TimeInForce" type="CHAR"/>
+    <field number="60" name="TransactTime" type="UTCTIMESTAMP"/>
+    <field number="93" name="SignatureLength" type="LENGTH"/>
+    <field number="89" name="Signature" type="DATA"/>
+    <field number="98" name="EncryptMethod" type="INT"/>
+    <field number="103" name="OrdRejReason" type="INT"/>
+    <field number="108" name="HeartBtInt" type="INT"/>
+    <field number="112" name="TestReqID" type="STRING"/>
+    <field number="123" name="GapFillFlag" type="BOOLEAN"/>
+    <field number="141" name="ResetSeqNumFlag" type="BOOLEAN"/>
+    <field number="150" name="ExecType" type="CHAR"/>
+    <field number="151" name="LeavesQty" type="QTY"/>
+    <field number="371" name="RefTagID" type="INT"/>
+    <field number="372" name="RefMsgType" type="STRING"/>
+    <field number="373" name="SessionRejectReason" type="INT"/>
+    <field number="1137" name="DeliverToLocation" type="STRING"/>
+  </fields>
+  <header>
+    <field number="8" name="BeginString" required="Y"/>
+    <field number="9" name="BodyLength" required="Y"/>
+    <field number="35" name="MsgType" required="Y"/>
+    <field number="49" name="SenderCompID" required="Y"/>
+    <field number="56" name="TargetCompID" required="Y"/>
+    <field number="34" name="MsgSeqNum" required="Y"/>
+    <field number="52" name="SendingTime" required="Y"/>
+  </header>
+  <messages>
+    <message name="Logon" msgtype="A" msgcat="admin">
+      <field number="98" name="EncryptMethod" required="N"/>
+      <field number="108" name="HeartBtInt" required="Y"/>
+      <field number="141" name="ResetSeqNumFlag" required="N"/>
+    </message>
+    <message name="Logout" msgtype="5" msgcat="admin">
+      <field number="58" name="Text" required="N"/>
+    </message>
+    <message name="Heartbeat" msgtype="0" msgcat="admin">
+      <field number="112" name="TestReqID" required="N"/>
+    </message>
+    <message name="TestRequest" msgtype="1" msgcat="admin">
+      <field number="112" name="TestReqID" required="Y"/>
+    </message>
+    <message name="ResendRequest" msgtype="2" msgcat="admin">
+      <field number="7" name="BeginSeqNo" required="Y"/>
+      <field number="16" name="EndSeqNo" required="Y"/>
+    </message>
+    <message name="Reject" msgtype="3" msgcat="admin">
+      <field number="34" name="MsgSeqNum" required="Y"/>
+      <field number="45" name="RefSeqNum" required="Y"/>
+      <field number="371" name="RefTagID" required="N"/>
+      <field number="372" name="RefMsgType" required="N"/>
+      <field number="373" name="SessionRejectReason" required="N"/>
+      <field number="58" name="Text" required="N"/>
+    </message>
+    <message name="SequenceReset" msgtype="4" msgcat="admin">
+      <field number="36" name="NewSeqNo" required="Y"/>
+      <field number="123" name="GapFillFlag" required="N"/>
+    </message>
+    <message name="NewOrderSingle" msgtype="D" msgcat="app">
+      <field number="11" name="ClOrdID" required="Y"/>
+      <field number="1" name="Account" required="N"/>
+      <field number="21" name="HandlInst" required="N"/>
+      <field number="55" name="Symbol" required="Y"/>
+      <field number="54" name="Side" required="Y"/>
+      <field number="60" name="TransactTime" required="Y"/>
+      <field number="40" name="OrdType" required="Y"/>
+      <field number="38" name="OrderQty" required="N"/>
+      <field number="44" name="Price" required="N"/>
+      <field number="59" name="TimeInForce" required="N"/>
+      <field number="15" name="Currency" required="N"/>
+    </message>
+    <message name="ExecutionReport" msgtype="8" msgcat="app">
+      <field number="37" name="OrderID" required="Y"/>
+      <field number="11" name="ClOrdID" required="Y"/>
+      <field number="17" name="ExecID" required="Y"/>
+      <field number="150" name="ExecType" required="Y"/>
+      <field number="39" name="OrdStatus" required="Y"/>
+      <field number="55" name="Symbol" required="Y"/>
+      <field number="54" name="Side" required="Y"/>
+      <field number="38" name="OrderQty" required="N"/>
+      <field number="44" name="Price" required="N"/>
+      <field number="151" name="LeavesQty" required="N"/>
+      <field number="14" name="CumQty" required="N"/>
+      <field number="6" name="AvgPx" required="N"/>
+      <field number="103" name="OrdRejReason" required="N"/>
+      <field number="58" name="Text" required="N"/>
+    </message>
+  </messages>
+  <trailer>
+    <field number="93" name="SignatureLength" required="N"/>
+    <field number="89" name="Signature" required="N"/>
+    <field number="10" name="CheckSum" required="Y"/>
+  </trailer>
+</fix>
