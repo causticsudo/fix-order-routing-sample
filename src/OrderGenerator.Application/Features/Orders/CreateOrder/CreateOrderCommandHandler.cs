@@ -49,8 +49,6 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Cre
             order.CreatedAt);
     }
 
-    //todo: não vejo extensão agr, mas poderia ser uma abstract factory ou builder
-    // depende mt não sei quantos tipos de order posso ter no futuro
     private static Order BuildOrder(CreateOrderCommand request)
     {
         var symbol = Symbol.Create(request.Symbol);
