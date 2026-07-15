@@ -80,6 +80,7 @@ public class FixOrderListener : MessageCracker, IApplication
             {
                 var repository = scope.ServiceProvider.GetRequiredService<IOrderExecutionRepository>();
                 var exposureCalculator = scope.ServiceProvider.GetRequiredService<ExposureCalculator>();
+                var exposureCache = scope.ServiceProvider.GetRequiredService<IExposureCache>();
 
                 var canAccept = exposureCalculator.CanAcceptOrderAsync(symbol, side, qty, prc).GetAwaiter().GetResult();
 
@@ -87,9 +88,7 @@ public class FixOrderListener : MessageCracker, IApplication
                 if (canAccept)
                 {
                     execution = OrderExecution.CreateAccepted(clOrdId, symbol, side, qty, prc);
-                    var exposure = exposureCalculator.GetExposureAsync(symbolStr).GetAwaiter().GetResult();
-                    _logger.LogInformation("Order accepted: ClOrdID={ClOrdID}, Symbol={Symbol}, Exposure={Exposure}",
-                        clOrdId, symbolStr, exposure);
+                    _logger.LogInformation("Order accepted: ClOrdID={ClOrdID}, Symbol={Symbol}", clOrdId, symbolStr);
                 }
                 else
                 {
@@ -99,6 +98,14 @@ public class FixOrderListener : MessageCracker, IApplication
                 }
 
                 repository.AddAsync(execution).GetAwaiter().GetResult();
+
+                if (canAccept)
+                {
+                    var exposure = exposureCalculator.GetExposureAsync(symbolStr).GetAwaiter().GetResult();
+                    exposureCache.SetExposureAsync(symbolStr, exposure).GetAwaiter().GetResult();
+                    _logger.LogInformation("Updated exposure: Symbol={Symbol}, Exposure={Exposure}", symbolStr, exposure);
+                }
+
                 SendExecutionReport(execution, sessionId);
             }
         }
