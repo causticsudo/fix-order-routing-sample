@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <LangVersion>latest</LangVersion>
+    <NoWarn>CS1591</NoWarn>
   </PropertyGroup>
 
 </Project>
