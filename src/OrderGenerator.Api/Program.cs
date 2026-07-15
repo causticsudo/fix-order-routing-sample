@@ -7,8 +7,10 @@ using OrderGenerator.Application.Abstractions;
 using OrderGenerator.Application.Features.Orders.CreateOrder;
 using OrderGenerator.Application.Services;
 using OrderGenerator.Domain.Abstractions;
+using OrderGenerator.Infra.Caching;
 using OrderGenerator.Infra.Persistence;
 using Serilog;
+using StackExchange.Redis;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -26,7 +28,6 @@ builder.Host.UseSerilog((_, logger) =>
 #region Services
 builder.Services.AddControllers();
 builder.Services.AddHealthChecks();
-builder.Services.AddMemoryCache();
 #endregion
 
 #region Database
@@ -48,7 +49,15 @@ builder.Services.AddMediatR(typeof(CreateOrderCommand).Assembly);
 
 #region Repository
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
-builder.Services.AddSingleton<IOrderCache, OrderCache>();
+builder.Services.AddScoped<IOrderEventRepository, OrderEventRepository>();
+#endregion
+
+#region Redis
+var redisHost = builder.Configuration["Redis:Host"] ?? "localhost";
+var redisPort = builder.Configuration["Redis:Port"] ?? "6379";
+builder.Services.AddSingleton<IConnectionMultiplexer>(
+    ConnectionMultiplexer.Connect($"{redisHost}:{redisPort}"));
+builder.Services.AddSingleton<IExposureReader, RedisExposureReader>();
 #endregion
 
 #region FIX
