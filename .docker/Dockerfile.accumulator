@@ -5,7 +5,7 @@ COPY ["src/OrderAccumulator.Worker/OrderAccumulator.Worker.csproj", "src/OrderAc
 COPY ["src/OrderAccumulator.Application/OrderAccumulator.Application.csproj", "src/OrderAccumulator.Application/"]
 COPY ["src/OrderAccumulator.Domain/OrderAccumulator.Domain.csproj", "src/OrderAccumulator.Domain/"]
 COPY ["src/OrderAccumulator.Infra/OrderAccumulator.Infra.csproj", "src/OrderAccumulator.Infra/"]
-COPY ["src/OrderAccumulator.SharedKernel/OrderAccumulator.SharedKernel.csproj", "src/OrderAccumulator.SharedKernel/"]
+COPY ["src/FixOrderRouting.SharedKernel/FixOrderRouting.SharedKernel.csproj", "src/FixOrderRouting.SharedKernel/"]
 
 RUN dotnet restore "src/OrderAccumulator.Worker/OrderAccumulator.Worker.csproj"
 
@@ -17,6 +17,7 @@ FROM mcr.microsoft.com/dotnet/runtime:8.0
 WORKDIR /app
 
 COPY --from=build /app/publish .
+COPY src/OrderAccumulator.Worker/acceptor.cfg .
 
 EXPOSE 9000
 ENTRYPOINT ["dotnet", "OrderAccumulator.Worker.dll"]
