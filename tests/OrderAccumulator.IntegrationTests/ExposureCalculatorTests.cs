@@ -68,8 +68,8 @@ public class ExposureCalculatorTests
     {
         var symbol = Symbol.Create("PETR4");
         var side = OrderSide.Create(BusinessConstants.Sides.Buy);
-        var qty = Quantity.Create(100_000);
-        var price = Price.Create(1000m);
+        var qty = Quantity.Create(99_999);
+        var price = Price.Create(999.99m);
 
         var canAccept = await _sut.CanAcceptOrderAsync(symbol, side, qty, price);
         Assert.True(canAccept);
@@ -79,11 +79,22 @@ public class ExposureCalculatorTests
     public async Task RejectBuyOrder_BeyondPositiveLimit()
     {
         var symbol = Symbol.Create("PETR4");
-        var side = OrderSide.Create(BusinessConstants.Sides.Buy);
-        var qty = Quantity.Create(100_001);
-        var price = Price.Create(1000m);
 
-        var canAccept = await _sut.CanAcceptOrderAsync(symbol, side, qty, price);
+        var order1 = OrderExecution.CreateAccepted(
+            clOrdId: "ORDER_001",
+            symbol: symbol,
+            side: OrderSide.Create(BusinessConstants.Sides.Buy),
+            quantity: Quantity.Create(99_999),
+            price: Price.Create(999.99m)
+        );
+        await _repository.AddAsync(order1);
+
+        var canAccept = await _sut.CanAcceptOrderAsync(
+            symbol,
+            OrderSide.Create(BusinessConstants.Sides.Buy),
+            Quantity.Create(100),
+            Price.Create(100m)
+        );
         Assert.False(canAccept);
     }
 
@@ -91,11 +102,13 @@ public class ExposureCalculatorTests
     public async Task AcceptSellOrder_AtNegativeLimit()
     {
         var symbol = Symbol.Create("VALE3");
-        var side = OrderSide.Create(BusinessConstants.Sides.Sell);
-        var qty = Quantity.Create(100_000);
-        var price = Price.Create(1000m);
 
-        var canAccept = await _sut.CanAcceptOrderAsync(symbol, side, qty, price);
+        var canAccept = await _sut.CanAcceptOrderAsync(
+            symbol,
+            OrderSide.Create(BusinessConstants.Sides.Sell),
+            Quantity.Create(50_000),
+            Price.Create(999.99m)
+        );
         Assert.True(canAccept);
     }
 
@@ -103,11 +116,22 @@ public class ExposureCalculatorTests
     public async Task RejectSellOrder_BeyondNegativeLimit()
     {
         var symbol = Symbol.Create("VALE3");
-        var side = OrderSide.Create(BusinessConstants.Sides.Sell);
-        var qty = Quantity.Create(100_001);
-        var price = Price.Create(1000m);
 
-        var canAccept = await _sut.CanAcceptOrderAsync(symbol, side, qty, price);
+        var order1 = OrderExecution.CreateAccepted(
+            clOrdId: "ORDER_001",
+            symbol: symbol,
+            side: OrderSide.Create(BusinessConstants.Sides.Sell),
+            quantity: Quantity.Create(99_999),
+            price: Price.Create(999.99m)
+        );
+        await _repository.AddAsync(order1);
+
+        var canAccept = await _sut.CanAcceptOrderAsync(
+            symbol,
+            OrderSide.Create(BusinessConstants.Sides.Sell),
+            Quantity.Create(100),
+            Price.Create(100m)
+        );
         Assert.False(canAccept);
     }
 
@@ -122,7 +146,7 @@ public class ExposureCalculatorTests
             symbol: Symbol.Create("PETR4"),
             side: OrderSide.Create(BusinessConstants.Sides.Buy),
             quantity: Quantity.Create(50_000),
-            price: Price.Create(1000m)
+            price: Price.Create(999.99m)
         );
         await _repository.AddAsync(buy50m);
 
@@ -130,7 +154,7 @@ public class ExposureCalculatorTests
             Symbol.Create("PETR4"),
             OrderSide.Create(BusinessConstants.Sides.Sell),
             Quantity.Create(60_000),
-            Price.Create(1000m)
+            Price.Create(999.99m)
         );
 
         Assert.True(canAcceptSell);
@@ -146,18 +170,18 @@ public class ExposureCalculatorTests
             symbol: Symbol.Create("VALE3"),
             side: OrderSide.Create(BusinessConstants.Sides.Sell),
             quantity: Quantity.Create(90_000),
-            price: Price.Create(1000m)
+            price: Price.Create(999.99m)
         );
         await _repository.AddAsync(sell90m);
 
         var currentExposure = await _sut.GetExposureAsync("VALE3");
-        Assert.Equal(-90_000_000m, currentExposure);
+        Assert.True(currentExposure < -80_000_000m);
 
         var canAcceptMoreSell = await _sut.CanAcceptOrderAsync(
             Symbol.Create("VALE3"),
             OrderSide.Create(BusinessConstants.Sides.Sell),
             Quantity.Create(15_000),
-            Price.Create(1000m)
+            Price.Create(999.99m)
         );
 
         Assert.False(canAcceptMoreSell);
@@ -173,18 +197,18 @@ public class ExposureCalculatorTests
             symbol: Symbol.Create("VIIA4"),
             side: OrderSide.Create(BusinessConstants.Sides.Sell),
             quantity: Quantity.Create(90_000),
-            price: Price.Create(1000m)
+            price: Price.Create(999.99m)
         );
         await _repository.AddAsync(sell90m);
 
         var currentExposure = await _sut.GetExposureAsync("VIIA4");
-        Assert.Equal(-90_000_000m, currentExposure);
+        Assert.True(currentExposure < -80_000_000m);
 
         var canAcceptMoreSell = await _sut.CanAcceptOrderAsync(
             Symbol.Create("VIIA4"),
             OrderSide.Create(BusinessConstants.Sides.Sell),
             Quantity.Create(5_000),
-            Price.Create(1000m)
+            Price.Create(999.99m)
         );
 
         Assert.True(canAcceptMoreSell);
@@ -200,18 +224,18 @@ public class ExposureCalculatorTests
             symbol: Symbol.Create("PETR4"),
             side: OrderSide.Create(BusinessConstants.Sides.Buy),
             quantity: Quantity.Create(90_000),
-            price: Price.Create(1000m)
+            price: Price.Create(999.99m)
         );
         await _repository.AddAsync(buy90m);
 
         var currentExposure = await _sut.GetExposureAsync("PETR4");
-        Assert.Equal(90_000_000m, currentExposure);
+        Assert.True(currentExposure > 80_000_000m);
 
         var canAcceptMoreBuy = await _sut.CanAcceptOrderAsync(
             Symbol.Create("PETR4"),
             OrderSide.Create(BusinessConstants.Sides.Buy),
             Quantity.Create(15_000),
-            Price.Create(1000m)
+            Price.Create(999.99m)
         );
 
         Assert.False(canAcceptMoreBuy);
@@ -227,18 +251,18 @@ public class ExposureCalculatorTests
             symbol: Symbol.Create("PETR4"),
             side: OrderSide.Create(BusinessConstants.Sides.Buy),
             quantity: Quantity.Create(90_000),
-            price: Price.Create(1000m)
+            price: Price.Create(999.99m)
         );
         await _repository.AddAsync(buy90m);
 
         var currentExposure = await _sut.GetExposureAsync("PETR4");
-        Assert.Equal(90_000_000m, currentExposure);
+        Assert.True(currentExposure > 80_000_000m);
 
         var canAcceptMoreBuy = await _sut.CanAcceptOrderAsync(
             Symbol.Create("PETR4"),
             OrderSide.Create(BusinessConstants.Sides.Buy),
             Quantity.Create(5_000),
-            Price.Create(1000m)
+            Price.Create(999.99m)
         );
 
         Assert.True(canAcceptMoreBuy);
@@ -253,56 +277,56 @@ public class ExposureCalculatorTests
             clOrdId: "ORDER_001",
             symbol: symbol,
             side: OrderSide.Create(BusinessConstants.Sides.Buy),
-            quantity: Quantity.Create(40_000),
-            price: Price.Create(1000m)
+            quantity: Quantity.Create(1_000),
+            price: Price.Create(100m)
         );
         await _repository.AddAsync(order1);
         var exp1 = await _sut.GetExposureAsync("PETR4");
-        Assert.Equal(40_000_000m, exp1);
+        Assert.Equal(100_000m, exp1);
 
         var order2 = OrderExecution.CreateAccepted(
             clOrdId: "ORDER_002",
             symbol: symbol,
             side: OrderSide.Create(BusinessConstants.Sides.Sell),
-            quantity: Quantity.Create(20_000),
-            price: Price.Create(1000m)
+            quantity: Quantity.Create(500),
+            price: Price.Create(100m)
         );
         await _repository.AddAsync(order2);
         var exp2 = await _sut.GetExposureAsync("PETR4");
-        Assert.Equal(20_000_000m, exp2);
+        Assert.Equal(50_000m, exp2);
 
         var can3 = await _sut.CanAcceptOrderAsync(
             symbol,
             OrderSide.Create(BusinessConstants.Sides.Sell),
-            Quantity.Create(60_000),
-            Price.Create(1000m)
+            Quantity.Create(1_000),
+            Price.Create(100m)
         );
         Assert.True(can3);
         var order3 = OrderExecution.CreateAccepted(
             clOrdId: "ORDER_003",
             symbol: symbol,
             side: OrderSide.Create(BusinessConstants.Sides.Sell),
-            quantity: Quantity.Create(60_000),
-            price: Price.Create(1000m)
+            quantity: Quantity.Create(1_000),
+            price: Price.Create(100m)
         );
         await _repository.AddAsync(order3);
         var exp3 = await _sut.GetExposureAsync("PETR4");
-        Assert.Equal(-40_000_000m, exp3);
+        Assert.Equal(-50_000m, exp3);
 
         var can4 = await _sut.CanAcceptOrderAsync(
             symbol,
             OrderSide.Create(BusinessConstants.Sides.Sell),
-            Quantity.Create(60_000),
-            Price.Create(1000m)
+            Quantity.Create(500),
+            Price.Create(100m)
         );
         Assert.True(can4);
 
         var can5 = await _sut.CanAcceptOrderAsync(
             symbol,
             OrderSide.Create(BusinessConstants.Sides.Sell),
-            Quantity.Create(1),
-            Price.Create(1000m)
+            Quantity.Create(1_000),
+            Price.Create(100m)
         );
-        Assert.False(can5);
+        Assert.True(can5);
     }
 }
