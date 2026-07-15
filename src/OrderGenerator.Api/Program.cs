@@ -77,6 +77,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<OrderGeneratorDbContext>();
+    //todo: por enquanto, não sei se vou usar .sql no composer
     await db.Database.EnsureCreatedAsync();
 }
 
