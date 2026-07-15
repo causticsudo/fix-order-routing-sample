@@ -9,11 +9,11 @@ namespace OrderGenerator.UnitTests.Infrastructure;
 
 public class OrderCacheTests
 {
-    private readonly OrderCache _cache;
+    private readonly OrderCache _sut;
 
     public OrderCacheTests()
     {
-        _cache = new OrderCache(new MemoryCache(new MemoryCacheOptions()));
+        _sut = new OrderCache(new MemoryCache(new MemoryCacheOptions()));
     }
 
     [Fact]
@@ -21,8 +21,8 @@ public class OrderCacheTests
     {
         var order = CreateTestOrder();
 
-        _cache.Set(order);
-        var exists = _cache.TryGet(order.Id, out var cached);
+        _sut.Set(order);
+        var exists = _sut.TryGet(order.Id, out var cached);
 
         exists.Should().Be(true);
         cached.Should().NotBeNull();
@@ -35,8 +35,8 @@ public class OrderCacheTests
         var order = CreateTestOrder();
         var expiration = TimeSpan.FromSeconds(1);
 
-        _cache.Set(order, expiration);
-        var existsImmediately = _cache.TryGet(order.Id, out _);
+        _sut.Set(order, expiration);
+        var existsImmediately = _sut.TryGet(order.Id, out _);
 
         existsImmediately.Should().Be(true);
     }
@@ -46,7 +46,7 @@ public class OrderCacheTests
     {
         var nonExistentId = Guid.NewGuid();
 
-        var exists = _cache.TryGet(nonExistentId, out _);
+        var exists = _sut.TryGet(nonExistentId, out _);
 
         exists.Should().Be(false);
     }
@@ -55,9 +55,9 @@ public class OrderCacheTests
     public void TryGet_WithExistingId_ReturnsTrue()
     {
         var order = CreateTestOrder();
-        _cache.Set(order);
+        _sut.Set(order);
 
-        var exists = _cache.TryGet(order.Id, out _);
+        var exists = _sut.TryGet(order.Id, out _);
 
         exists.Should().Be(true);
     }
@@ -66,9 +66,9 @@ public class OrderCacheTests
     public void TryGet_ReturnsCorrectOrder()
     {
         var order = CreateTestOrder();
-        _cache.Set(order);
+        _sut.Set(order);
 
-        _cache.TryGet(order.Id, out var cachedOrder);
+        _sut.TryGet(order.Id, out var cachedOrder);
 
         cachedOrder.Should().NotBeNull();
         cachedOrder!.Id.Should().Be(order.Id);
@@ -82,10 +82,10 @@ public class OrderCacheTests
     public void Remove_DeletesOrderFromCache()
     {
         var order = CreateTestOrder();
-        _cache.Set(order);
+        _sut.Set(order);
 
-        _cache.Remove(order.Id);
-        var exists = _cache.TryGet(order.Id, out _);
+        _sut.Remove(order.Id);
+        var exists = _sut.TryGet(order.Id, out _);
 
         exists.Should().Be(false);
     }
@@ -95,7 +95,7 @@ public class OrderCacheTests
     {
         var nonExistentId = Guid.NewGuid();
 
-        var exception = Record.Exception(() => _cache.Remove(nonExistentId));
+        var exception = Record.Exception(() => _sut.Remove(nonExistentId));
 
         exception.Should().BeNull();
     }
@@ -106,11 +106,11 @@ public class OrderCacheTests
         var order1 = CreateTestOrder();
         var order2 = CreateTestOrder();
 
-        _cache.Set(order1);
-        _cache.Set(order2);
+        _sut.Set(order1);
+        _sut.Set(order2);
 
-        _cache.TryGet(order1.Id, out var cached1);
-        _cache.TryGet(order2.Id, out var cached2);
+        _sut.TryGet(order1.Id, out var cached1);
+        _sut.TryGet(order2.Id, out var cached2);
 
         cached1.Should().NotBeNull();
         cached2.Should().NotBeNull();

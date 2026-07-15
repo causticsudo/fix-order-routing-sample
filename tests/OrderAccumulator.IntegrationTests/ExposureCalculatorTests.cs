@@ -11,8 +11,7 @@ namespace OrderAccumulator.IntegrationTests;
 
 public class ExposureCalculatorTests
 {
-    private readonly ServiceProvider _serviceProvider;
-    private readonly ExposureCalculator _calculator;
+    private readonly ExposureCalculator _sut;
 
     public ExposureCalculatorTests()
     {
@@ -25,9 +24,9 @@ public class ExposureCalculatorTests
         });
         services.AddScoped<ExposureCalculator>();
 
-        _serviceProvider = services.BuildServiceProvider();
-        var scope = _serviceProvider.CreateScope();
-        _calculator = scope.ServiceProvider.GetRequiredService<ExposureCalculator>();
+        ServiceProvider serviceProvider = services.BuildServiceProvider();
+        var scope = serviceProvider.CreateScope();
+        _sut = scope.ServiceProvider.GetRequiredService<ExposureCalculator>();
     }
 
     [Fact]
@@ -38,7 +37,7 @@ public class ExposureCalculatorTests
         var qty = Quantity.Create(1000);
         var price = Price.Create(25.50m);
 
-        var canAccept = await _calculator.CanAcceptOrderAsync(symbol, side, qty, price);
+        var canAccept = await _sut.CanAcceptOrderAsync(symbol, side, qty, price);
         Assert.True(canAccept);
     }
 
@@ -50,7 +49,7 @@ public class ExposureCalculatorTests
         var qty = Quantity.Create(1000);
         var price = Price.Create(25.50m);
 
-        var canAccept = await _calculator.CanAcceptOrderAsync(symbol, side, qty, price);
+        var canAccept = await _sut.CanAcceptOrderAsync(symbol, side, qty, price);
         Assert.True(canAccept);
     }
 
@@ -66,7 +65,7 @@ public class ExposureCalculatorTests
         var qty = Quantity.Create(99999);
         var price = Price.Create(999.99m);
 
-        var canAccept = await _calculator.CanAcceptOrderAsync(symbol, side, qty, price);
+        var canAccept = await _sut.CanAcceptOrderAsync(symbol, side, qty, price);
 
         // This should be accepted (within 100M limit)
         Assert.True(canAccept);
@@ -75,7 +74,7 @@ public class ExposureCalculatorTests
     [Fact]
     public async Task GetExposure_ReturnsZeroForNoOrders()
     {
-        var exposure = await _calculator.GetExposureAsync("VIIA4");
+        var exposure = await _sut.GetExposureAsync("VIIA4");
         Assert.Equal(0m, exposure);
     }
 }

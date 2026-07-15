@@ -9,7 +9,6 @@ namespace OrderAccumulator.IntegrationTests;
 
 public class FixCommunicationTests
 {
-    private readonly ServiceProvider _serviceProvider;
     private readonly IOrderExecutionRepository _repository;
     private readonly ExposureCalculator _exposureCalculator;
 
@@ -17,10 +16,10 @@ public class FixCommunicationTests
     {
         var services = new ServiceCollection();
         ConfigureServices(services);
-        _serviceProvider = services.BuildServiceProvider();
+        ServiceProvider serviceProvider = services.BuildServiceProvider();
 
-        _repository = _serviceProvider.GetRequiredService<IOrderExecutionRepository>();
-        _exposureCalculator = _serviceProvider.GetRequiredService<ExposureCalculator>();
+        _repository = serviceProvider.GetRequiredService<IOrderExecutionRepository>();
+        _exposureCalculator = serviceProvider.GetRequiredService<ExposureCalculator>();
     }
 
     private void ConfigureServices(IServiceCollection services)

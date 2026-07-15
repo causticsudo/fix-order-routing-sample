@@ -14,13 +14,13 @@ public class GetOrderQueryHandlerTests
 {
     private readonly Mock<IOrderRepository> _repositoryMock;
     private readonly Mock<IOrderCache> _cacheMock;
-    private readonly GetOrderQueryHandler _handler;
+    private readonly GetOrderQueryHandler _sut;
 
     public GetOrderQueryHandlerTests()
     {
         _repositoryMock = new Mock<IOrderRepository>();
         _cacheMock = new Mock<IOrderCache>();
-        _handler = new GetOrderQueryHandler(_repositoryMock.Object, _cacheMock.Object);
+        _sut = new GetOrderQueryHandler(_repositoryMock.Object, _cacheMock.Object);
     }
 
     [Fact]
@@ -31,7 +31,7 @@ public class GetOrderQueryHandlerTests
 
         _cacheMock.Setup(c => c.TryGet(order.Id, out order)).Returns(true);
 
-        var response = await _handler.Handle(query, CancellationToken.None);
+        var response = await _sut.Handle(query, CancellationToken.None);
 
         response.Should().NotBeNull();
         response.OrderId.Should().Be(order.Id);
@@ -51,7 +51,7 @@ public class GetOrderQueryHandlerTests
         _repositoryMock.Setup(r => r.GetByIdAsync(orderId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
 
-        var response = await _handler.Handle(query, CancellationToken.None);
+        var response = await _sut.Handle(query, CancellationToken.None);
 
         response.Should().NotBeNull();
         response.OrderId.Should().Be(orderId);
@@ -69,7 +69,7 @@ public class GetOrderQueryHandlerTests
         _repositoryMock.Setup(r => r.GetByIdAsync(order.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
 
-        await _handler.Handle(query, CancellationToken.None);
+        await _sut.Handle(query, CancellationToken.None);
 
         _cacheMock.Verify(c => c.Set(order, null), Times.Once);
     }
@@ -85,7 +85,7 @@ public class GetOrderQueryHandlerTests
         _repositoryMock.Setup(r => r.GetByIdAsync(orderId, It.IsAny<CancellationToken>()))
             .ReturnsAsync((Order?)null);
 
-        var exception = await Assert.ThrowsAsync<OrderNotFoundException>(() => _handler.Handle(query, CancellationToken.None));
+        var exception = await Assert.ThrowsAsync<OrderNotFoundException>(() => _sut.Handle(query, CancellationToken.None));
         exception.Message.Should().Contain($"Order with ID {orderId} not found");
     }
 
@@ -100,7 +100,7 @@ public class GetOrderQueryHandlerTests
         _repositoryMock.Setup(r => r.GetByIdAsync(order.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
 
-        var response = await _handler.Handle(query, CancellationToken.None);
+        var response = await _sut.Handle(query, CancellationToken.None);
 
         response.Should().NotBeNull();
         _repositoryMock.Verify(r => r.GetByIdAsync(order.Id, It.IsAny<CancellationToken>()), Times.Once);
@@ -118,7 +118,7 @@ public class GetOrderQueryHandlerTests
         _repositoryMock.Setup(r => r.GetByIdAsync(orderId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
 
-        var response = await _handler.Handle(query, CancellationToken.None);
+        var response = await _sut.Handle(query, CancellationToken.None);
 
         response.OrderId.Should().Be(orderId);
         response.Symbol.Should().Be("PETR4");
