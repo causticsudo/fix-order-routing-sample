@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using OrderGenerator.Application.Abstractions;
 using OrderGenerator.Domain.Abstractions;
 using OrderGenerator.Domain.Aggregates;
+using OrderGenerator.Domain.Aggregates.Enumerators;
 using QuickFix;
 using QuickFix.Fields;
 using QuickFix.FIX44;
@@ -85,6 +86,7 @@ public class FixOrderInitiator : MessageCracker, IApplication, IFixOrderInitiato
         {
             using var scope = _serviceProvider.CreateScope();
             var repository = scope.ServiceProvider.GetRequiredService<IOrderRepository>();
+            var orderEventRepository = scope.ServiceProvider.GetRequiredService<IOrderEventRepository>();
 
             var order = await repository.GetByIdAsync(orderId);
             if (order == null)
@@ -97,11 +99,16 @@ public class FixOrderInitiator : MessageCracker, IApplication, IFixOrderInitiato
             {
                 order.MarkAsAccepted();
                 _logger.LogInformation("Order accepted: {OrderId}", orderId);
+                await orderEventRepository.AddAsync(
+                    OrderEvent.Create(order.Id, order.Id.ToString(), OrderEventType.Accepted));
             }
             else if (execType == FixConstants.ExecType.Rejected)
             {
-                order.MarkAsRejected(rejectionReason ?? "Order rejected by OrderAccumulator");
+                var reason = rejectionReason ?? "Order rejected by OrderAccumulator";
+                order.MarkAsRejected(reason);
                 _logger.LogWarning("Order rejected: {OrderId}, Reason: {Reason}", orderId, rejectionReason);
+                await orderEventRepository.AddAsync(
+                    OrderEvent.Create(order.Id, order.Id.ToString(), OrderEventType.Rejected, reason));
             }
 
             await repository.UpdateAsync(order);
