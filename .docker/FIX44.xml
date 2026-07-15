@@ -44,6 +44,7 @@
     <field number="151" name="LeavesQty" type="QTY"/>
     <field number="371" name="RefTagID" type="INT"/>
     <field number="372" name="RefMsgType" type="STRING"/>
+    <field number="373" name="SessionRejectReason" type="INT"/>
     <field number="1137" name="DeliverToLocation" type="STRING"/>
   </fields>
   <header>
@@ -79,6 +80,7 @@
       <field number="45" name="RefSeqNum" required="Y"/>
       <field number="371" name="RefTagID" required="N"/>
       <field number="372" name="RefMsgType" required="N"/>
+      <field number="373" name="SessionRejectReason" required="N"/>
       <field number="58" name="Text" required="N"/>
     </message>
     <message name="SequenceReset" msgtype="4" msgcat="admin">
