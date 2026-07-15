@@ -20,7 +20,6 @@
   <ItemGroup>
     <ProjectReference Include="..\OrderAccumulator.Application\OrderAccumulator.Application.csproj" />
     <ProjectReference Include="..\OrderAccumulator.Infra\OrderAccumulator.Infra.csproj" />
-    <ProjectReference Include="..\OrderAccumulator.SharedKernel\OrderAccumulator.SharedKernel.csproj" />
   </ItemGroup>
 
 </Project>

@@ -15,7 +15,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\OrderAccumulator.Domain\OrderAccumulator.Domain.csproj" />
-    <ProjectReference Include="..\OrderAccumulator.SharedKernel\OrderAccumulator.SharedKernel.csproj" />
   </ItemGroup>
 
 </Project>

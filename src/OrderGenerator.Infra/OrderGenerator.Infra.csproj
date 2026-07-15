@@ -16,7 +16,6 @@
   <ItemGroup>
     <ProjectReference Include="..\OrderGenerator.Domain\OrderGenerator.Domain.csproj" />
     <ProjectReference Include="..\OrderGenerator.Application\OrderGenerator.Application.csproj" />
-    <ProjectReference Include="..\OrderGenerator.SharedKernel\OrderGenerator.SharedKernel.csproj" />
   </ItemGroup>
 
 </Project>
