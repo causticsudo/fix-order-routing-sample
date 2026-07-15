@@ -2,7 +2,7 @@ using Serilog;
 
 var builder = Host.CreateDefaultBuilder(args);
 
-builder.UseSerilog((context, logger) =>
+builder.UseSerilog((_, logger) =>
 {
     logger
         .MinimumLevel.Debug()
@@ -10,7 +10,7 @@ builder.UseSerilog((context, logger) =>
         .Enrich.FromLogContext();
 });
 
-builder.ConfigureServices((context, services) =>
+builder.ConfigureServices((_, _) =>
 {
     // Add services here
 });
