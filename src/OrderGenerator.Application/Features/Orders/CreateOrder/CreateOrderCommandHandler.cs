@@ -3,6 +3,7 @@ using OrderGenerator.Application.Abstractions;
 using OrderGenerator.Application.Exceptions;
 using OrderGenerator.Domain.Abstractions;
 using OrderGenerator.Domain.Aggregates;
+using OrderGenerator.Domain.Aggregates.Enumerators;
 using OrderGenerator.Domain.ValueObjects;
 
 namespace OrderGenerator.Application.Features.Orders.CreateOrder;
@@ -10,14 +11,17 @@ namespace OrderGenerator.Application.Features.Orders.CreateOrder;
 public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, CreateOrderResponse>
 {
     private readonly IOrderRepository _repository;
-    private readonly IOrderCache _cache;
     private readonly IFixOrderInitiator _fixInitiator;
+    private readonly IOrderEventRepository _orderEventRepository;
 
-    public CreateOrderCommandHandler(IOrderRepository repository, IOrderCache cache, IFixOrderInitiator fixInitiator)
+    public CreateOrderCommandHandler(
+        IOrderRepository repository,
+        IFixOrderInitiator fixInitiator,
+        IOrderEventRepository orderEventRepository)
     {
         _repository = repository;
-        _cache = cache;
         _fixInitiator = fixInitiator;
+        _orderEventRepository = orderEventRepository;
     }
 
     public async Task<CreateOrderResponse> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
@@ -31,11 +35,15 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Cre
         var order = BuildOrder(request);
 
         await _repository.AddAsync(order, cancellationToken);
-        _cache.Set(order);
+        await _orderEventRepository.AddAsync(
+            OrderEvent.Create(order.Id, order.Id.ToString(), OrderEventType.Created),
+            cancellationToken);
 
         order.MarkAsSubmitted();
         await _repository.UpdateAsync(order, cancellationToken);
-        _cache.Set(order);
+        await _orderEventRepository.AddAsync(
+            OrderEvent.Create(order.Id, order.Id.ToString(), OrderEventType.Submitted),
+            cancellationToken);
 
         await _fixInitiator.SendNewOrderSingleAsync(order, cancellationToken);
 
@@ -46,7 +54,8 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Cre
             order.Quantity.Value,
             order.Price.Value,
             order.Status.ToString(),
-            order.CreatedAt);
+            order.CreatedAt,
+            order.RejectionReason);
     }
 
     private static Order BuildOrder(CreateOrderCommand request)

@@ -12,16 +12,16 @@ namespace OrderGenerator.UnitTests.Application;
 public class CreateOrderCommandHandlerTests
 {
     private readonly Mock<IOrderRepository> _repositoryMock;
-    private readonly Mock<IOrderCache> _cacheMock;
     private readonly Mock<IFixOrderInitiator> _fixInitiatorMock;
+    private readonly Mock<IOrderEventRepository> _orderEventRepositoryMock;
     private readonly CreateOrderCommandHandler _sut;
 
     public CreateOrderCommandHandlerTests()
     {
         _repositoryMock = new Mock<IOrderRepository>();
-        _cacheMock = new Mock<IOrderCache>();
         _fixInitiatorMock = new Mock<IFixOrderInitiator>();
-        _sut = new CreateOrderCommandHandler(_repositoryMock.Object, _cacheMock.Object, _fixInitiatorMock.Object);
+        _orderEventRepositoryMock = new Mock<IOrderEventRepository>();
+        _sut = new CreateOrderCommandHandler(_repositoryMock.Object, _fixInitiatorMock.Object, _orderEventRepositoryMock.Object);
     }
 
     [Fact]
@@ -59,16 +59,16 @@ public class CreateOrderCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WithValidCommand_CachesOrder()
+    public async Task Handle_WithValidCommand_PersistsCreatedAndSubmittedEvents()
     {
         _fixInitiatorMock.Setup(f => f.SendNewOrderSingleAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var command = new CreateOrderCommand("VIIA4", "BUY", 25, 99.99m);
+        var command = new CreateOrderCommand("PETR4", "BUY", 100, 20.50m);
 
         await _sut.Handle(command, CancellationToken.None);
 
-        _cacheMock.Verify(c => c.Set(It.IsAny<Order>(), null), Times.Exactly(2));
+        _orderEventRepositoryMock.Verify(r => r.AddAsync(It.IsAny<OrderEvent>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
     }
 
     [Fact]
