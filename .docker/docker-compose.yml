@@ -74,7 +74,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://0.0.0.0:5000
-      ConnectionStrings__DefaultConnection: "Host=postgresql;Port=5432;Database=${POSTGRES_DB:-order_generator};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}"
+      ConnectionStrings__DefaultConnection: "Host=postgresql;Port=5432;Database=order_generator;Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}"
       Redis__Host: redis
       Redis__Port: 6379
       Keycloak__Authority: http://keycloak:8080/realms/fix-order-routing
@@ -104,7 +104,7 @@ services:
     container_name: fix-accumulator-worker
     environment:
       DOTNET_ENVIRONMENT: Development
-      ConnectionStrings__DefaultConnection: "Host=postgresql;Port=5432;Database=${POSTGRES_DB:-order_generator};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}"
+      ConnectionStrings__DefaultConnection: "Host=postgresql;Port=5432;Database=order_accumulator;Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}"
       Jaeger__ServiceName: OrderAccumulator
       Jaeger__Host: jaeger
       Jaeger__Port: 6831
