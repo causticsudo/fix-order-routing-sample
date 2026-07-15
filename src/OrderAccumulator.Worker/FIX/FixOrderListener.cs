@@ -1,6 +1,5 @@
 using FixOrderRouting.SharedKernel.Constants;
 using FixOrderRouting.SharedKernel.Enums;
-using Microsoft.Extensions.Logging;
 using OrderAccumulator.Domain.Abstractions;
 using OrderAccumulator.Domain.Aggregates;
 using OrderAccumulator.Domain.Services;
@@ -15,99 +14,93 @@ using Message = QuickFix.Message;
 
 namespace OrderAccumulator.Worker.FIX;
 
-/// <summary>
-/// FIX message listener - receives NewOrderSingle and sends ExecutionReport
-/// </summary>
 public class FixOrderListener : MessageCracker, IApplication
 {
-    private readonly IOrderExecutionRepository _repository;
-    private readonly ExposureCalculator _exposureCalculator;
+    private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<FixOrderListener> _logger;
 
     public FixOrderListener(
-        IOrderExecutionRepository repository,
-        ExposureCalculator exposureCalculator,
+        IServiceProvider serviceProvider,
         ILogger<FixOrderListener> logger)
     {
-        _repository = repository;
-        _exposureCalculator = exposureCalculator;
+        _serviceProvider = serviceProvider;
         _logger = logger;
     }
 
-    public void OnCreate(SessionID sessionID)
+    public void OnCreate(SessionID sessionId)
     {
-        _logger.LogInformation("FIX Acceptor session created: {SessionID}", sessionID);
+        _logger.LogInformation("FIX Acceptor session created: {SessionID}", sessionId);
     }
 
-    public void OnLogon(SessionID sessionID)
+    public void OnLogon(SessionID sessionId)
     {
-        _logger.LogInformation("FIX Acceptor session logon: {SessionID}", sessionID);
+        _logger.LogInformation("FIX Acceptor session logon: {SessionID}", sessionId);
     }
 
-    public void OnLogout(SessionID sessionID)
+    public void OnLogout(SessionID sessionId)
     {
-        _logger.LogInformation("FIX Acceptor session logout: {SessionID}", sessionID);
+        _logger.LogInformation("FIX Acceptor session logout: {SessionID}", sessionId);
     }
 
-    public void ToAdmin(Message message, SessionID sessionID)
+    public void ToAdmin(Message message, SessionID sessionId) { }
+
+    public void ToApp(Message message, SessionID sessionId) { }
+
+    public void FromAdmin(Message message, SessionID sessionId)
     {
     }
 
-    public void ToApp(Message message, SessionID sessionID)
+    public void FromApp(Message message, SessionID sessionId)
     {
-        _logger.LogDebug("Sending FIX message: {MsgType}", message.GetField(new MsgType()).Obj);
+        Crack(message, sessionId);
     }
 
-    public void FromAdmin(Message message, SessionID sessionID)
-    {
-        Crack(message, sessionID);
-    }
-
-    public void FromApp(Message message, SessionID sessionID)
-    {
-        Crack(message, sessionID);
-    }
-
-    public void OnMessage(NewOrderSingle nos, SessionID sessionID)
+    public void OnMessage(NewOrderSingle newOrderSingle, SessionID sessionId)
     {
         try
         {
-            var clOrdId = nos.GetField(new ClOrdID()).Obj;
+            var clOrdId = newOrderSingle.GetField(new ClOrdID()).Value;
             _logger.LogInformation("Received NewOrderSingle: ClOrdID={ClOrdID}", clOrdId);
 
-            var symbolStr = nos.GetField(new Symbol()).Obj.ToString();
-            var sideChar = nos.GetField(new Side()).Obj.ToString();
-            var quantityStr = nos.GetField(new OrderQty()).Obj.ToString();
-            var priceStr = nos.GetField(new Price()).Obj.ToString();
+            var symbolStr = newOrderSingle.GetField(new Symbol()).Value.ToString();
+            var sideChar = newOrderSingle.GetField(new Side()).Value.ToString();
+            var quantityStr = newOrderSingle.GetField(new OrderQty()).Value.ToString();
+            var priceStr = newOrderSingle.GetField(new Price()).Value.ToString();
 
             var quantity = long.Parse(quantityStr);
             var price = decimal.Parse(priceStr);
 
             var symbol = SymbolVO.Create(symbolStr);
-            var isBuy = sideChar == FixOrderRouting.SharedKernel.Constants.FixConstants.Side.Buy.ToString();
+            var isBuy = sideChar == FixConstants.Side.Buy.ToString();
             var side = SideVO.Create(isBuy ? BusinessConstants.Sides.Buy : BusinessConstants.Sides.Sell);
             var qty = QuantityVO.Create(quantity);
             var prc = PriceVO.Create(price);
 
-            var canAccept = _exposureCalculator.CanAcceptOrderAsync(symbol, side, qty, prc).GetAwaiter().GetResult();
-
-            OrderAccumulator.Domain.Aggregates.OrderExecution execution;
-            if (canAccept)
+            using (var scope = _serviceProvider.CreateScope())
             {
-                execution = OrderAccumulator.Domain.Aggregates.OrderExecution.CreateAccepted(clOrdId, symbol, side, qty, prc);
-                var exposure = _exposureCalculator.GetExposureAsync(symbolStr).GetAwaiter().GetResult();
-                _logger.LogInformation("Order accepted: ClOrdID={ClOrdID}, Symbol={Symbol}, Exposure={Exposure}",
-                    clOrdId, symbolStr, exposure);
-            }
-            else
-            {
-                var rejectionReason = $"Financial exposure would exceed limit of R$ {BusinessConstants.Orders.ExposureLimit:N0}";
-                execution = OrderAccumulator.Domain.Aggregates.OrderExecution.CreateRejected(clOrdId, symbol, side, qty, prc, rejectionReason);
-                _logger.LogWarning("Order rejected: ClOrdID={ClOrdID}, Reason={Reason}", clOrdId, rejectionReason);
-            }
+                var repository = scope.ServiceProvider.GetRequiredService<IOrderExecutionRepository>();
+                var exposureCalculator = scope.ServiceProvider.GetRequiredService<ExposureCalculator>();
 
-            _repository.AddAsync(execution).GetAwaiter().GetResult();
-            SendExecutionReport(nos, execution, sessionID);
+                var canAccept = exposureCalculator.CanAcceptOrderAsync(symbol, side, qty, prc).GetAwaiter().GetResult();
+
+                OrderExecution execution;
+                if (canAccept)
+                {
+                    execution = OrderExecution.CreateAccepted(clOrdId, symbol, side, qty, prc);
+                    var exposure = exposureCalculator.GetExposureAsync(symbolStr).GetAwaiter().GetResult();
+                    _logger.LogInformation("Order accepted: ClOrdID={ClOrdID}, Symbol={Symbol}, Exposure={Exposure}",
+                        clOrdId, symbolStr, exposure);
+                }
+                else
+                {
+                    var rejectionReason = $"Financial exposure would exceed limit of R$ {BusinessConstants.Orders.ExposureLimit:N0}";
+                    execution = OrderExecution.CreateRejected(clOrdId, symbol, side, qty, prc, rejectionReason);
+                    _logger.LogWarning("Order rejected: ClOrdID={ClOrdID}, Reason={Reason}", clOrdId, rejectionReason);
+                }
+
+                repository.AddAsync(execution).GetAwaiter().GetResult();
+                SendExecutionReport(execution, sessionId);
+            }
         }
         catch (Exception ex)
         {
@@ -116,7 +109,7 @@ public class FixOrderListener : MessageCracker, IApplication
         }
     }
 
-    private void SendExecutionReport(NewOrderSingle nos, OrderAccumulator.Domain.Aggregates.OrderExecution execution, SessionID sessionID)
+    private void SendExecutionReport(OrderExecution execution, SessionID sessionId)
     {
         try
         {
@@ -132,8 +125,8 @@ public class FixOrderListener : MessageCracker, IApplication
 
             if (execution.Status == OrderExecutionStatus.Accepted)
             {
-                execReport.Set(new ExecType(FixOrderRouting.SharedKernel.Constants.FixConstants.ExecType.New[0]));
-                execReport.Set(new OrdStatus(FixOrderRouting.SharedKernel.Constants.FixConstants.OrdStatus.Filled));
+                execReport.Set(new ExecType(FixConstants.ExecType.New[0]));
+                execReport.Set(new OrdStatus(FixConstants.OrdStatus.Filled));
                 execReport.Set(new LeavesQty(0));
                 execReport.Set(new CumQty((int)execution.Quantity.Value));
                 execReport.Set(new AvgPx(execution.Price.Value));
@@ -141,12 +134,12 @@ public class FixOrderListener : MessageCracker, IApplication
             }
             else
             {
-                execReport.Set(new ExecType(FixOrderRouting.SharedKernel.Constants.FixConstants.ExecType.Rejected[0]));
-                execReport.Set(new OrdStatus(FixOrderRouting.SharedKernel.Constants.FixConstants.OrdStatus.Rejected));
+                execReport.Set(new ExecType(FixConstants.ExecType.Rejected[0]));
+                execReport.Set(new OrdStatus(FixConstants.OrdStatus.Rejected));
                 execReport.Set(new Text(execution.RejectionReason ?? "Order rejected"));
             }
 
-            Session.SendToTarget(execReport, sessionID);
+            Session.SendToTarget(execReport, sessionId);
             _logger.LogInformation("ExecutionReport sent: ClOrdID={ClOrdID}, Status={Status}",
                 execution.ClOrdId, execution.Status);
         }

@@ -1,4 +1,5 @@
 using FixOrderRouting.SharedKernel.Constants;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using OrderGenerator.Application.Abstractions;
 using OrderGenerator.Domain.Abstractions;
@@ -10,68 +11,59 @@ using Message = QuickFix.Message;
 
 namespace OrderGenerator.Application.Services;
 
-/// <summary>
-/// FIX Initiator that sends NewOrderSingle messages to OrderAccumulator
-/// </summary>
 public class FixOrderInitiator : MessageCracker, IApplication, IFixOrderInitiator
 {
     private readonly ILogger<FixOrderInitiator> _logger;
-    private readonly IOrderRepository _orderRepository;
+    private readonly IServiceProvider _serviceProvider;
     private Session? _session;
-    private SessionID? _sessionID;
+    private SessionID? _sessionId;
     private readonly Dictionary<string, Guid> _clOrdIdToOrderId = new();
 
-    public FixOrderInitiator(ILogger<FixOrderInitiator> logger, IOrderRepository orderRepository)
+    public FixOrderInitiator(ILogger<FixOrderInitiator> logger, IServiceProvider serviceProvider)
     {
         _logger = logger;
-        _orderRepository = orderRepository;
+        _serviceProvider = serviceProvider;
     }
 
-    public void OnCreate(SessionID sessionID)
+    public void OnCreate(SessionID sessionId)
     {
-        _logger.LogInformation("FIX Initiator session created: {SessionID}", sessionID);
-        _sessionID = sessionID;
+        _logger.LogInformation("FIX Initiator session created: {SessionID}", sessionId);
+        _sessionId = sessionId;
     }
 
-    public void OnLogon(SessionID sessionID)
+    public void OnLogon(SessionID sessionId)
     {
-        _logger.LogInformation("FIX Initiator logon successful: {SessionID}", sessionID);
-        _session = Session.LookupSession(sessionID);
+        _logger.LogInformation("FIX Initiator logon successful: {SessionID}", sessionId);
+        _session = Session.LookupSession(sessionId);
     }
 
-    public void OnLogout(SessionID sessionID)
+    public void OnLogout(SessionID sessionId)
     {
-        _logger.LogInformation("FIX Initiator logout: {SessionID}", sessionID);
+        _logger.LogInformation("FIX Initiator logout: {SessionID}", sessionId);
         _session = null;
     }
 
-    public void ToAdmin(Message message, SessionID sessionID)
+    public void ToAdmin(Message message, SessionID sessionId) { }
+
+    public void ToApp(Message message, SessionID sessionId) { }
+
+    public void FromAdmin(Message message, SessionID sessionId)
     {
     }
 
-    public void ToApp(Message message, SessionID sessionID)
+    public void FromApp(Message message, SessionID sessionId)
     {
-        _logger.LogDebug("Sending FIX message: {MsgType}", message.GetField(new MsgType()).Obj);
+        Crack(message, sessionId);
     }
 
-    public void FromAdmin(Message message, SessionID sessionID)
-    {
-        Crack(message, sessionID);
-    }
-
-    public void FromApp(Message message, SessionID sessionID)
-    {
-        Crack(message, sessionID);
-    }
-
-    public void OnMessage(ExecutionReport execReport, SessionID sessionID)
+    public void OnMessage(ExecutionReport execReport, SessionID sessionId)
     {
         try
         {
-            var clOrdId = execReport.GetField(new ClOrdID()).Obj.ToString();
-            var execType = execReport.GetField(new ExecType()).Obj.ToString();
-            var ordStatus = execReport.GetField(new OrdStatus()).Obj.ToString();
-            var text = execReport.IsSet(new Text()) ? execReport.GetField(new Text()).Obj.ToString() : null;
+            var clOrdId = execReport.GetField(new ClOrdID()).Value.ToString();
+            var execType = execReport.GetField(new ExecType()).Value.ToString();
+            var ordStatus = execReport.GetField(new OrdStatus()).Value.ToString();
+            var text = execReport.IsSet(new Text()) ? execReport.GetField(new Text()).Value.ToString() : null;
 
             _logger.LogInformation("Received ExecutionReport: ClOrdID={ClOrdID}, ExecType={ExecType}, OrdStatus={OrdStatus}",
                 clOrdId, execType, ordStatus);
@@ -91,7 +83,10 @@ public class FixOrderInitiator : MessageCracker, IApplication, IFixOrderInitiato
     {
         try
         {
-            var order = await _orderRepository.GetByIdAsync(orderId);
+            using var scope = _serviceProvider.CreateScope();
+            var repository = scope.ServiceProvider.GetRequiredService<IOrderRepository>();
+
+            var order = await repository.GetByIdAsync(orderId);
             if (order == null)
             {
                 _logger.LogWarning("Order not found: {OrderId}", orderId);
@@ -109,7 +104,7 @@ public class FixOrderInitiator : MessageCracker, IApplication, IFixOrderInitiato
                 _logger.LogWarning("Order rejected: {OrderId}, Reason: {Reason}", orderId, rejectionReason);
             }
 
-            await _orderRepository.UpdateAsync(order);
+            await repository.UpdateAsync(order);
         }
         catch (Exception ex)
         {
@@ -119,7 +114,7 @@ public class FixOrderInitiator : MessageCracker, IApplication, IFixOrderInitiato
 
     public async Task SendNewOrderSingleAsync(Order order, CancellationToken cancellationToken = default)
     {
-        if (_session == null || _sessionID == null)
+        if (_session == null || _sessionId == null)
         {
             _logger.LogWarning("FIX session not connected, cannot send order");
             throw new InvalidOperationException("FIX session not connected");
@@ -128,18 +123,18 @@ public class FixOrderInitiator : MessageCracker, IApplication, IFixOrderInitiato
         try
         {
             var clOrdId = order.Id.ToString();
-            var nos = new NewOrderSingle();
-            nos.Set(new ClOrdID(clOrdId));
-            nos.Set(new Symbol(order.Symbol.Value));
-            nos.Set(new Side(order.Side.Value == "BUY" ? FixConstants.Side.Buy : FixConstants.Side.Sell));
-            nos.Set(new OrderQty((int)order.Quantity.Value));
-            nos.Set(new Price(order.Price.Value));
-            nos.Set(new OrdType(FixConstants.OrdType.Limit));
-            nos.Set(new TransactTime(DateTime.UtcNow));
+            var newOrderSingle = new NewOrderSingle();
+            newOrderSingle.Set(new ClOrdID(clOrdId));
+            newOrderSingle.Set(new Symbol(order.Symbol.Value));
+            newOrderSingle.Set(new Side(order.Side.Value == "BUY" ? FixConstants.Side.Buy : FixConstants.Side.Sell));
+            newOrderSingle.Set(new OrderQty((int)order.Quantity.Value));
+            newOrderSingle.Set(new Price(order.Price.Value));
+            newOrderSingle.Set(new OrdType(FixConstants.OrdType.Limit));
+            newOrderSingle.Set(new TransactTime(DateTime.UtcNow));
 
             _clOrdIdToOrderId[clOrdId] = order.Id;
 
-            Session.SendToTarget(nos, _sessionID);
+            Session.SendToTarget(newOrderSingle, _sessionId);
             _logger.LogInformation("NewOrderSingle sent: ClOrdID={ClOrdID}, Symbol={Symbol}",
                 order.Id, order.Symbol.Value);
             await Task.CompletedTask;
