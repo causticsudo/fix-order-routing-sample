@@ -93,6 +93,9 @@ csharp_style_expression_bodied_indexers = true:silent
 csharp_prefer_braces = true:silent
 csharp_prefer_simple_using_statement = true:suggestion
 
+# Namespace declarations
+csharp_style_namespace_declarations = file_scoped:silent
+
 # Indentation and spacing
 csharp_indent_case_contents = true
 csharp_indent_switch_labels = true
