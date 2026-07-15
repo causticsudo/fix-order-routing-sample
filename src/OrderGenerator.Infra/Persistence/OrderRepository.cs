@@ -24,4 +24,10 @@ public class OrderRepository : IOrderRepository
         return await _context.Orders
             .FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
     }
+
+    public async Task UpdateAsync(Order order, CancellationToken cancellationToken = default)
+    {
+        _context.Orders.Update(order);
+        await _context.SaveChangesAsync(cancellationToken);
+    }
 }
