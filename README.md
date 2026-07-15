@@ -7,7 +7,7 @@
 
 A high-criticality order routing system for capital markets using the **FIX 4.4 protocol**. Built with a **Vertical Sliced Architecture**, **DDD principles**, and **CQRS pattern** for maximum reliability, performance, and maintainability.
 
-## 🏗️ Architecture
+## Architecture
 
 ### System Components
 
@@ -46,7 +46,7 @@ A high-criticality order routing system for capital markets using the **FIX 4.4 
 - **Jaeger**: Distributed tracing (traces, metrics, logs)
 - **Docker Compose**: Local development environment
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -62,10 +62,16 @@ A high-criticality order routing system for capital markets using the **FIX 4.4 
    cd fix-order-routing-sample
    ```
 
-2. **Start infrastructure with Docker Compose**
+2. **Start all services with Docker Compose**
    ```bash
-   docker-compose -f .docker/docker-compose.yml up -d
+   cd .docker
+   docker-compose up
    ```
+   This will:
+   - Build OrderGenerator.Api and OrderAccumulator.Worker from source
+   - Start PostgreSQL (creates `order_generator` database automatically)
+   - Start Redis, Jaeger, and Keycloak
+   - Initialize API and Worker services
 
 3. **Verify services are running**
    ```bash
@@ -77,15 +83,56 @@ A high-criticality order routing system for capital markets using the **FIX 4.4 
    # Redis: localhost:6379
    ```
 
-4. **Configure Keycloak** (first time only)
+4. **Test the API**
+   
+   **Generate a debug JWT token:**
+   ```bash
+   TOKEN=$(curl -s -X POST http://localhost:5000/api/v1/token/debug | jq -r .token)
+   echo $TOKEN
+   ```
+
+   **Submit an order:**
+   ```bash
+   curl -X POST http://localhost:5000/api/v1/orders \
+     -H "Authorization: Bearer $TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "symbol": "PETR4",
+       "side": "BUY",
+       "quantity": 100,
+       "price": 25.50
+     }'
+   ```
+   Expected response (201 Created):
+   ```json
+   {
+     "orderId": "b370c51a-92d6-4302-a5ac-a272054f438d",
+     "symbol": "PETR4",
+     "side": "BUY",
+     "quantity": 100,
+     "price": 25.5,
+     "status": "Created",
+     "createdAt": "2026-07-15T05:35:53.1852066Z"
+   }
+   ```
+
+   **Valid symbols:** PETR4, VALE3, VIIA4  
+   **Valid sides:** BUY, SELL  
+   **Quantity range:** 1 to 99,999  
+   **Price range:** 0.01 to 999.99 (multiples of 0.01)
+
+5. **Configure Keycloak** (optional, for production)
    - Navigate to [Keycloak Admin Console](http://localhost:8080/admin)
+   - Login with: admin / admin
    - Create realm: `fix-order-routing`
    - Create client: `fix-order-generator`
    - Create users and assign roles
 
-5. **Access the application**
-   - Order Generator UI: http://localhost:3000 (frontend)
-   - Jaeger Traces: http://localhost:16686
+6. **Stop all services**
+   ```bash
+   cd .docker
+   docker-compose down
+   ```
 
 ### Building from Source
 
@@ -95,7 +142,7 @@ dotnet build FixOrderRouting.sln --configuration Release
 dotnet test FixOrderRouting.sln
 ```
 
-## 📋 Features
+## Features
 
 ### Order Generator
 
@@ -114,10 +161,7 @@ dotnet test FixOrderRouting.sln
 ### Order Accumulator
 
 - **FIX 4.4 Server** (QuickFix/N)
-- **Event Sourcing** — Complete audit trail
 - **Exposure Calculation** — Real-time risk management
-- **Event Replay** — Crash recovery with zero data loss
-- **Outbox Pattern** — Guaranteed message delivery
 - **OpenTelemetry Tracing** for observability
 
 **Business Logic:**
@@ -140,7 +184,7 @@ dotnet test tests/OrderAccumulator.IntegrationTests
 dotnet test FixOrderRouting.sln
 ```
 
-## 📊 Observability
+## Observability
 
 ### Jaeger Dashboard
 
@@ -161,7 +205,7 @@ Example log query:
 SELECT * FROM logs WHERE correlation_id = '...'
 ```
 
-## 🔐 Security
+## Security
 
 - **Keycloak** for centralized authentication
 - **Bearer tokens** with Redis cache
@@ -171,7 +215,7 @@ SELECT * FROM logs WHERE correlation_id = '...'
 - **CORS** properly configured
 - **Sensitive data** masked in logs
 
-## 📈 CI/CD Pipeline
+## CI/CD Actions
 
 ### Build & Test (`build-and-test.yml`)
 Runs on every push and pull request:
@@ -196,11 +240,11 @@ Runs on push to `main` branch:
 
 **For Interviewers:** Download the GitHub release to get everything needed to run the system locally!
 
-## 📚 Documentation
+## Documentation
 - [C4 Diagrams](docs/C4/) — System architecture visualizations
 
 > This repository is a codesh challenge.
 
-## 📄 License
+## License
 
 MIT License — See [LICENSE](LICENSE).
