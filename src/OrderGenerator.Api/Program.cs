@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using OrderGenerator.Application.Abstractions;
 using OrderGenerator.Application.Features.Orders.CreateOrder;
+using OrderGenerator.Application.Services;
 using OrderGenerator.Domain.Abstractions;
 using OrderGenerator.Infra.Persistence;
 using Serilog;
@@ -48,6 +49,13 @@ builder.Services.AddMediatR(typeof(CreateOrderCommand).Assembly);
 #region Repository
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddSingleton<IOrderCache, OrderCache>();
+#endregion
+
+#region FIX
+builder.Services.AddSingleton<FixOrderInitiator>();
+builder.Services.AddSingleton<OrderGenerator.Application.Abstractions.IFixOrderInitiator>(sp =>
+    sp.GetRequiredService<FixOrderInitiator>());
+builder.Services.AddHostedService<FixInitiatorService>();
 #endregion
 
 #region Authentication
