@@ -1,5 +1,4 @@
 using FixOrderRouting.SharedKernel.Constants;
-using FixOrderRouting.SharedKernel.Enums;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using OrderAccumulator.Domain.Abstractions;
