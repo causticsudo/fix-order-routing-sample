@@ -1,7 +1,6 @@
 using FixOrderRouting.SharedKernel.Constants;
 using FixOrderRouting.SharedKernel.Enums;
 using OrderAccumulator.Domain.Abstractions;
-using OrderAccumulator.Domain.Aggregates;
 using OrderAccumulator.Domain.ValueObjects;
 
 namespace OrderAccumulator.Domain.Services;
