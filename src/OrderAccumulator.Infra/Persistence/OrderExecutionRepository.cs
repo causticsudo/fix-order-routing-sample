@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using OrderAccumulator.Domain.Abstractions;
 using OrderAccumulator.Domain.Aggregates;
+using OrderAccumulator.Domain.ValueObjects;
 
 namespace OrderAccumulator.Infra.Persistence;
 
@@ -27,8 +28,10 @@ public class OrderExecutionRepository : IOrderExecutionRepository
 
     public async Task<IEnumerable<OrderExecution>> GetBySymbolAsync(string symbol, CancellationToken cancellationToken = default)
     {
+        var symbolValue = Symbol.Create(symbol);
+
         return await _dbContext.OrderExecutions
-            .Where(e => e.Symbol.Value == symbol)
+            .Where(e => e.Symbol == symbolValue)
             .ToListAsync(cancellationToken);
     }
 
