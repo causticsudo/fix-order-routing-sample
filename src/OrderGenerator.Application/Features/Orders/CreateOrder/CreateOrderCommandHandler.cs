@@ -1,4 +1,5 @@
 using MediatR;
+using OrderGenerator.Application.Abstractions;
 using OrderGenerator.Application.Exceptions;
 using OrderGenerator.Domain.Abstractions;
 using OrderGenerator.Domain.Aggregates;
@@ -9,21 +10,26 @@ namespace OrderGenerator.Application.Features.Orders.CreateOrder;
 public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, CreateOrderResponse>
 {
     private readonly IOrderRepository _repository;
+    private readonly IOrderCache _cache;
 
-    public CreateOrderCommandHandler(IOrderRepository repository)
+    public CreateOrderCommandHandler(IOrderRepository repository, IOrderCache cache)
     {
         _repository = repository;
+        _cache = cache;
     }
 
     public async Task<CreateOrderResponse> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
     {
-        var validation = new CreateOrderCommandValidator().Validate(request);
+        var validation = await new CreateOrderCommandValidator().ValidateAsync(request, cancellationToken);
         if (!validation.IsValid)
-            throw new ValidationException(string.Join("; ", validation.Errors.Select(e => e.ErrorMessage)));
+        {
+            throw new ValidationException(validation.Errors.Select(e => e.ErrorMessage));
+        }
 
         var order = BuildOrder(request);
 
         await _repository.AddAsync(order, cancellationToken);
+        _cache.Set(order);
 
         return new CreateOrderResponse(
             order.Id,

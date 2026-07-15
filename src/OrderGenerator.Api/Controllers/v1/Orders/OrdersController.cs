@@ -39,7 +39,7 @@ public class OrdersController(IMediator mediator, ILogger<OrdersController> logg
         catch (ValidationException ex)
         {
             logger.LogWarning("Validation error: {Error}", ex.Message);
-            return BadRequest(new { error = ex.Message });
+            return BadRequest(new { errors = ex.Errors });
         }
         catch (Exception ex)
         {
