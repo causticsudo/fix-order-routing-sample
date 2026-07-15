@@ -13,18 +13,23 @@ public class CreateOrderCommandHandlerTests
 {
     private readonly Mock<IOrderRepository> _repositoryMock;
     private readonly Mock<IOrderCache> _cacheMock;
+    private readonly Mock<IFixOrderInitiator> _fixInitiatorMock;
     private readonly CreateOrderCommandHandler _handler;
 
     public CreateOrderCommandHandlerTests()
     {
         _repositoryMock = new Mock<IOrderRepository>();
         _cacheMock = new Mock<IOrderCache>();
-        _handler = new CreateOrderCommandHandler(_repositoryMock.Object, _cacheMock.Object);
+        _fixInitiatorMock = new Mock<IFixOrderInitiator>();
+        _handler = new CreateOrderCommandHandler(_repositoryMock.Object, _cacheMock.Object, _fixInitiatorMock.Object);
     }
 
     [Fact]
     public async Task Handle_WithValidCommand_CreatesOrderSuccessfully()
     {
+        _fixInitiatorMock.Setup(f => f.SendNewOrderSingleAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
         var command = new CreateOrderCommand("PETR4", "BUY", 100, 20.50m);
 
         var response = await _handler.Handle(command, CancellationToken.None);
@@ -34,7 +39,7 @@ public class CreateOrderCommandHandlerTests
         response.Side.Should().Be("BUY");
         response.Quantity.Should().Be(100L);
         response.Price.Should().Be(20.50m);
-        response.Status.Should().Be("Created");
+        response.Status.Should().Be("Submitted");
         response.OrderId.Should().NotBe(Guid.Empty);
         response.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
     }
@@ -42,21 +47,28 @@ public class CreateOrderCommandHandlerTests
     [Fact]
     public async Task Handle_WithValidCommand_PersistsOrderToRepository()
     {
+        _fixInitiatorMock.Setup(f => f.SendNewOrderSingleAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
         var command = new CreateOrderCommand("VALE3", "SELL", 50, 15.75m);
 
         await _handler.Handle(command, CancellationToken.None);
 
         _repositoryMock.Verify(r => r.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Once);
+        _repositoryMock.Verify(r => r.UpdateAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task Handle_WithValidCommand_CachesOrder()
     {
+        _fixInitiatorMock.Setup(f => f.SendNewOrderSingleAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
         var command = new CreateOrderCommand("VIIA4", "BUY", 25, 99.99m);
 
         await _handler.Handle(command, CancellationToken.None);
 
-        _cacheMock.Verify(c => c.Set(It.IsAny<Order>(), null), Times.Once);
+        _cacheMock.Verify(c => c.Set(It.IsAny<Order>(), null), Times.Exactly(2));
     }
 
     [Fact]

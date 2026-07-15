@@ -11,11 +11,13 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Cre
 {
     private readonly IOrderRepository _repository;
     private readonly IOrderCache _cache;
+    private readonly IFixOrderInitiator _fixInitiator;
 
-    public CreateOrderCommandHandler(IOrderRepository repository, IOrderCache cache)
+    public CreateOrderCommandHandler(IOrderRepository repository, IOrderCache cache, IFixOrderInitiator fixInitiator)
     {
         _repository = repository;
         _cache = cache;
+        _fixInitiator = fixInitiator;
     }
 
     public async Task<CreateOrderResponse> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
@@ -30,6 +32,12 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Cre
 
         await _repository.AddAsync(order, cancellationToken);
         _cache.Set(order);
+
+        order.MarkAsSubmitted();
+        await _repository.UpdateAsync(order, cancellationToken);
+        _cache.Set(order);
+
+        await _fixInitiator.SendNewOrderSingleAsync(order, cancellationToken);
 
         return new CreateOrderResponse(
             order.Id,
