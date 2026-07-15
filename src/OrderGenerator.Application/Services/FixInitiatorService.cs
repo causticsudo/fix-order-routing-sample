@@ -7,9 +7,6 @@ using QuickFix.Transport;
 
 namespace OrderGenerator.Application.Services;
 
-/// <summary>
-/// Manages FIX Initiator connection lifecycle
-/// </summary>
 public class FixInitiatorService : IHostedService
 {
     private readonly FixOrderInitiator _initiator;
@@ -37,8 +34,8 @@ public class FixInitiatorService : IHostedService
 
             _logger.LogInformation("FIX Initiator started successfully");
 
-            // Give initiator time to connect
-            await Task.Delay(2000, cancellationToken);
+            //todo: validar a necessidade ainda, b.o no composer
+            await Task.Delay(5000, cancellationToken);
         }
         catch (Exception ex)
         {
