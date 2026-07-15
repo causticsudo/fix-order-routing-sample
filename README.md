@@ -174,24 +174,32 @@ SELECT * FROM logs WHERE correlation_id = '...'
 ## 📈 CI/CD Pipeline
 
 ### Build & Test (`build-and-test.yml`)
-1. ✅ Build solution
-2. ✅ Run unit tests
-3. ✅ Run integration tests (with Testcontainers)
-4. ✅ SonarQube analysis (if configured)
+Runs on every push and pull request:
+1. ✅ Restore dependencies
+2. ✅ Build solution (Release config)
+3. ✅ Run unit tests (`OrderGenerator.UnitTests`, `OrderAccumulator.UnitTests`)
+4. ✅ Run integration tests (`OrderGenerator.IntegrationTests`, `OrderAccumulator.IntegrationTests`)
+5. ℹ️ SonarQube analysis (commented out, enable as needed)
 
 ### Release (`release.yml`)
-1. ✅ Publish artifacts
-2. ✅ Build Docker images
-3. ✅ Push to registry (ghcr.io)
-4. ✅ Create GitHub releases
+Runs on push to `main` branch:
+1. ✅ Build solution in Release config
+2. ✅ Publish standalone executables:
+   - `OrderGenerator.Api` → tar.gz
+   - `OrderAccumulator.Worker` → tar.gz
+3. ✅ Auto-generate semantic tag: `v{YYYYMMDD}-{commit-hash}`
+4. ✅ Create GitHub release with:
+   - Published binaries (ready to run)
+   - `docker-compose.yml` (full local environment)
+   - Dockerfiles for both services
+   - `.env` example configuration
+
+**For Interviewers:** Download the GitHub release to get everything needed to run the system locally!
 
 ## 📚 Documentation
-
-- [Setup Guide](docs/SETUP.md) — Local environment setup
-- [Architecture](docs/ARCHITECTURE.md) — Design decisions
-- [API Documentation](docs/API.md) — REST API specs
-- [Contributing](docs/CONTRIBUTING.md) — Development guidelines
 - [C4 Diagrams](docs/C4/) — System architecture visualizations
+
+> This repository is a codesh challenge.
 
 ## 📄 License
 
