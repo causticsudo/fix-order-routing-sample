@@ -39,7 +39,7 @@ public class GetEventsQueryHandlerTests
         response.Page.Should().Be(1);
         response.PageSize.Should().Be(20);
         response.TotalCount.Should().Be(2);
-        response.Items[0].EventType.Should().Be("Created");
+        response.Items[0].Status.Should().Be("Created");
     }
 
     [Fact]
