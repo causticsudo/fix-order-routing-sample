@@ -6,6 +6,7 @@ using OrderGenerator.Application.Exceptions;
 using OrderGenerator.Application.Features.Orders.CreateOrder;
 using OrderGenerator.Application.Features.Orders.GetEvents;
 using OrderGenerator.Application.Features.Orders.GetOrder;
+using OrderGenerator.Application.Features.Orders.ListOrders;
 
 namespace OrderGenerator.Api.Controllers.v1.Orders;
 
@@ -14,6 +15,36 @@ namespace OrderGenerator.Api.Controllers.v1.Orders;
 [Route("api/v1/[controller]")]
 public class OrdersController(IMediator mediator, ILogger<OrdersController> logger) : ControllerBase
 {
+    [HttpGet]
+    [ProducesResponseType(typeof(PagedResponse<CreateOrderResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> ListOrders(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            logger.LogInformation("ListOrders request: Page={Page}, PageSize={PageSize}", page, pageSize);
+
+            var query = new ListOrdersQuery(page, pageSize);
+            var response = await mediator.Send(query, cancellationToken);
+
+            return Ok(response);
+        }
+        catch (ValidationException ex)
+        {
+            logger.LogWarning("Validation error: {Error}", ex.Message);
+            return BadRequest(new { errors = ex.Errors });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error listing orders");
+            return StatusCode(500, new { error = "Internal server error" });
+        }
+    }
+
     [HttpPost]
     [ProducesResponseType(typeof(CreateOrderResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -80,7 +111,7 @@ public class OrdersController(IMediator mediator, ILogger<OrdersController> logg
     }
 
     [HttpGet("events")]
-    [ProducesResponseType(typeof(PagedResponse<OrderEventResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PagedResponse<OrderEventDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetEvents(
