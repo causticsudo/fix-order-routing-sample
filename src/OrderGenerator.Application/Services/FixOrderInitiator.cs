@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using FixOrderRouting.SharedKernel.Constants;
+using FixOrderRouting.SharedKernel.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using OrderGenerator.Application.Abstractions;
@@ -59,13 +61,15 @@ public class FixOrderInitiator : MessageCracker, IApplication, IFixOrderInitiato
 
     public void OnMessage(ExecutionReport execReport, SessionID sessionId)
     {
+        var clOrdId = execReport.GetField(new ClOrdID()).Value.ToString();
+        var execType = execReport.GetField(new ExecType()).Value.ToString();
+        var ordStatus = execReport.GetField(new OrdStatus()).Value.ToString();
+        var text = execReport.IsSet(new Text()) ? execReport.GetField(new Text()).Value.ToString() : null;
+
+        using var activity = FixActivitySource.StartReceiveExecutionReport(clOrdId, execType, ordStatus);
+
         try
         {
-            var clOrdId = execReport.GetField(new ClOrdID()).Value.ToString();
-            var execType = execReport.GetField(new ExecType()).Value.ToString();
-            var ordStatus = execReport.GetField(new OrdStatus()).Value.ToString();
-            var text = execReport.IsSet(new Text()) ? execReport.GetField(new Text()).Value.ToString() : null;
-
             _logger.LogInformation("Received ExecutionReport: ClOrdID={ClOrdID}, ExecType={ExecType}, OrdStatus={OrdStatus}",
                 clOrdId, execType, ordStatus);
 
@@ -77,6 +81,7 @@ public class FixOrderInitiator : MessageCracker, IApplication, IFixOrderInitiato
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error processing ExecutionReport");
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
         }
     }
 
@@ -127,9 +132,13 @@ public class FixOrderInitiator : MessageCracker, IApplication, IFixOrderInitiato
             throw new InvalidOperationException("FIX session not connected");
         }
 
+        var clOrdId = order.Id.ToString();
+        using var activity = FixActivitySource.StartSendNewOrderSingle(
+            clOrdId, order.Symbol.Value, order.Side.Value,
+            order.Quantity.Value, order.Price.Value);
+
         try
         {
-            var clOrdId = order.Id.ToString();
             var newOrderSingle = new NewOrderSingle();
             newOrderSingle.Set(new ClOrdID(clOrdId));
             newOrderSingle.Set(new Symbol(order.Symbol.Value));
@@ -149,6 +158,7 @@ public class FixOrderInitiator : MessageCracker, IApplication, IFixOrderInitiato
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error sending NewOrderSingle: ClOrdID={ClOrdID}", order.Id);
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             throw;
         }
     }

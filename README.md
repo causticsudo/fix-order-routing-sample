@@ -1,250 +1,394 @@
-# FIX Order Routing System
+# Order Routing Sample | FIX Protocol (Financial Information eXchange)
 
-[![Build and Test](https://github.com/your-org/fix-order-routing-sample/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/your-org/fix-order-routing-sample/actions/workflows/build-and-test.yml)
-[![Release](https://github.com/your-org/fix-order-routing-sample/actions/workflows/release.yml/badge.svg)](https://github.com/your-org/fix-order-routing-sample/actions/workflows/release.yml)
-![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?style=flat)
-![License](https://img.shields.io/badge/license-MIT-green)
+[![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
+[![React](https://img.shields.io/badge/React-19.2-61DAFB?style=flat-square&logo=react)](https://react.dev/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791?style=flat-square&logo=postgresql)](https://www.postgresql.org/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker)](https://www.docker.com/)
+[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
-A high-criticality order routing system for capital markets using the **FIX 4.4 protocol**. Built with a **Vertical Sliced Architecture**, **DDD principles**, and **CQRS pattern** for maximum reliability, performance, and maintainability.
+## Descrição
 
-## Architecture
+Sistema de roteamento de pedidos para mercados de capitais utilizando protocolo FIX 4.4 com validação de exposição em tempo real. Implementado em arquitetura de Vertical Slices com padrão CQRS, demonstrando uma solução enterprise-grade para processamento de ordens de trading com garantias de consistência e rastreabilidade.
 
-### System Components
+## Arquitetura
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                      Order Generator                             │
-│  (REST API + React Frontend)                                    │
-├─────────────────────────────────────────────────────────────────┤
-│  - MediatR + CQRS Handlers                                      │
-│  - Keycloak Authentication                                      │
-│  - Redis Token Cache + In-Memory Cache                          │
-│  - PostgreSQL Persistence (Repository Pattern)                  │
-│  - OpenTelemetry → Jaeger Traces                                │
-└──────────────────┬───────────────────────────────────────────────┘
-                   │ FIX 4.4 Protocol
-                   │ (Client/Initiator)
-                   ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                   Order Accumulator                              │
-│  (Worker Service)                                               │
-├─────────────────────────────────────────────────────────────────┤
-│  - FIX Server (Acceptor)                                        │
-│  - Event Store (PostgreSQL)                                     │
-│  - Event Replay on Startup                                      │
-│  - Exposure Calculation (in-memory)                             │
-│  - Outbox Pattern for Reliability                               │
-│  - OpenTelemetry → Jaeger Traces                                │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                    React Frontend                             │
+│  (Browser - Port 5173)                                       │
+├──────────────────────────────────────────────────────────────┤
+│  - Order Form                                                 │
+│  - Real-time Status Updates                                   │
+│  - TypeScript + Vite                                          │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ HTTP/REST
+                           ↓
+┌──────────────────────────────────────────────────────────────┐
+│            Order Generator API (Port 5000)                    │
+│  REST Endpoints + JWT Authentication                         │
+├──────────────────────────────────────────────────────────────┤
+│  - POST /orders (Create)                                      │
+│  - GET /orders (List)                                         │
+│  - GET /health (Health Check)                                 │
+│                                                               │
+│  Internals:                                                   │
+│  - MediatR CQRS Pattern                                       │
+│  - FluentValidation                                           │
+│  - Repository Pattern                                         │
+│  - OpenTelemetry Instrumentation                              │
+│  - Serilog Structured Logging                                 │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ FIX 4.4 Protocol
+                           │ (TCP/Initiator)
+                           ↓
+┌──────────────────────────────────────────────────────────────┐
+│         Order Accumulator Worker (Port 9000)                  │
+│  FIX Protocol Server + Order Processing                      │
+├──────────────────────────────────────────────────────────────┤
+│  - FIX Acceptor (NewOrderSingle, ExecutionReport)            │
+│  - Exposure Calculator                                        │
+│  - Event Store Pattern                                        │
+│  - Order Execution (Accept/Reject)                            │
+│  - OpenTelemetry Instrumentation                              │
+│  - Serilog Structured Logging                                 │
+└──────────────┬──────────────────────────┬────────────────────┘
+               │                          │
+               ↓ (Read/Write)             ↓ (Cache)
+        ┌─────────────┐          ┌─────────────────┐
+        │ PostgreSQL  │          │     Redis       │
+        │    (Port    │          │   (Port 6379)   │
+        │   5432)     │          │                 │
+        └─────────────┘          └─────────────────┘
 ```
 
-### Infrastructure
+## Requisitos
 
-- **PostgreSQL 15**: Primary datastore (Orders, Events, Audit)
-- **Redis 7**: Distributed token cache
-- **Keycloak**: Identity and Access Management
-- **Jaeger**: Distributed tracing (traces, metrics, logs)
-- **Docker Compose**: Local development environment
+### Obrigatórios
+- Docker 20.10+
+- Docker Compose 2.0+
 
-## Quick Start
+### Stack
+**Backend:**
+- .NET 8.0 (14 projetos com Vertical Slice Architecture)
+- MediatR 11.1.0 (CQRS Pattern)
+- Entity Framework Core 8.0
+- PostgreSQL 15
+- StackExchange.Redis 2.6
+- QuickFIX/n 14.5.1 (FIX Protocol)
+- OpenTelemetry 1.8.0 (Observability)
+- Serilog 3.1.1 (Structured Logging)
+- FluentValidation 11.9.2
 
-### Prerequisites
+**Frontend:**
+- React 19.2
+- TypeScript 6.0
+- Vite 8.1
+- Fetch API (HTTP Client)
 
+**Infraestrutura:**
 - Docker & Docker Compose
-- .NET 8 SDK (optional, for local development)
-- Git
+- PostgreSQL 15
+- Redis 7
+- Keycloak (autenticação)
 
-### Local Setup
+## Como Rodar
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/your-org/fix-order-routing-sample.git
-   cd fix-order-routing-sample
-   ```
-
-2. **Start all services with Docker Compose**
-   ```bash
-   cd .docker
-   docker-compose up
-   ```
-   This will:
-   - Build OrderGenerator.Api and OrderAccumulator.Worker from source
-   - Start PostgreSQL (creates `order_generator` database automatically)
-   - Start Redis, Jaeger, and Keycloak
-   - Initialize API and Worker services
-
-3. **Verify services are running**
-   ```bash
-   # OrderGenerator API: http://localhost:5000
-   # OrderAccumulator Worker: localhost:9000 (FIX)
-   # Jaeger UI: http://localhost:16686
-   # Keycloak Admin: http://localhost:8080/admin (admin/admin)
-   # PostgreSQL: localhost:5432
-   # Redis: localhost:6379
-   ```
-
-4. **Test the API**
-   
-   **Generate a debug JWT token:**
-   ```bash
-   TOKEN=$(curl -s -X POST http://localhost:5000/api/v1/token/debug | jq -r .token)
-   echo $TOKEN
-   ```
-
-   **Submit an order:**
-   ```bash
-   curl -X POST http://localhost:5000/api/v1/orders \
-     -H "Authorization: Bearer $TOKEN" \
-     -H "Content-Type: application/json" \
-     -d '{
-       "symbol": "PETR4",
-       "side": "BUY",
-       "quantity": 100,
-       "price": 25.50
-     }'
-   ```
-   Expected response (201 Created):
-   ```json
-   {
-     "orderId": "b370c51a-92d6-4302-a5ac-a272054f438d",
-     "symbol": "PETR4",
-     "side": "BUY",
-     "quantity": 100,
-     "price": 25.5,
-     "status": "Created",
-     "createdAt": "2026-07-15T05:35:53.1852066Z"
-   }
-   ```
-
-   **Valid symbols:** PETR4, VALE3, VIIA4  
-   **Valid sides:** BUY, SELL  
-   **Quantity range:** 1 to 99,999  
-   **Price range:** 0.01 to 999.99 (multiples of 0.01)
-
-5. **Configure Keycloak** (optional, for production)
-   - Navigate to [Keycloak Admin Console](http://localhost:8080/admin)
-   - Login with: admin / admin
-   - Create realm: `fix-order-routing`
-   - Create client: `fix-order-generator`
-   - Create users and assign roles
-
-6. **Stop all services**
-   ```bash
-   cd .docker
-   docker-compose down
-   ```
-
-### Building from Source
+### Pré-requisitos
 
 ```bash
-dotnet restore FixOrderRouting.sln
-dotnet build FixOrderRouting.sln --configuration Release
-dotnet test FixOrderRouting.sln
+docker --version
+docker-compose --version
 ```
 
-## Features
-
-### Order Generator
-
-- **REST API** for order submission
-- **MediatR + CQRS** for command handling
-- **FluentValidation** for input validation
-- **Keycloak Authentication** with Redis token cache
-- **React Frontend** for order submission
-- **OpenTelemetry Tracing** for observability
-
-**Endpoints:**
-- `POST /api/v1/orders` — Submit new order
-- `GET /api/v1/orders/{orderId}` — Get order status
-- `GET /api/v1/health` — Health check
-
-### Order Accumulator
-
-- **FIX 4.4 Server** (QuickFix/N)
-- **Exposure Calculation** — Real-time risk management
-- **OpenTelemetry Tracing** for observability
-
-**Business Logic:**
-- Accept/Reject orders based on `R$ 100M` exposure limit per symbol
-- Calculate exposure: `Σ(buy_price × buy_qty) - Σ(sell_price × sell_qty)`
-- Respond with `ExecutionReport` (ExecType: `New` or `Rejected`)
-
-## 🧪 Testing
+### Build e Execução
 
 ```bash
-# Unit tests
-dotnet test tests/OrderGenerator.UnitTests
-dotnet test tests/OrderAccumulator.UnitTests
+# 1. Clonar repositório
+cd ~/fix-order-routing-sample
 
-# Integration tests
-dotnet test tests/OrderGenerator.IntegrationTests
-dotnet test tests/OrderAccumulator.IntegrationTests
+# 2. Build das imagens
+cd .docker
+docker-compose build
 
-# All tests
-dotnet test FixOrderRouting.sln
+# 3. Iniciar todos os serviços
+docker-compose up
+
+# Aguarde mensagens de sucesso:
+# fix-postgres is healthy
+# fix-redis is healthy
+# fix-generator-api | Now listening on: http://0.0.0.0:5000
+# fix-accumulator-worker | FIX Acceptor session created
+# fix-frontend | ✓ built in XXms
 ```
 
-## Observability
+### URLs de Acesso
 
-### Jaeger Dashboard
+| Serviço | URL | Descrição |
+|---------|-----|-----------|
+| Frontend | http://localhost:5173 | React App |
+| API | http://localhost:5000/api/v1 | REST Endpoints |
+| Health | http://localhost:5000/api/v1/health | Status DB/Cache |
+| Keycloak | http://localhost:8080 | Autenticação |
 
-Navigate to [Jaeger UI](http://localhost:16686) to:
-- View distributed traces end-to-end
-- Search by service, operation, tag
-- Analyze latency bottlenecks
-- Monitor error rates
+### Logs em Tempo Real (Terminal 2)
 
-### Logs
-
-- **Serilog** structured logging
-- **JSON format** for easy parsing
-- **Correlation IDs** for trace linking
-
-Example log query:
-```
-SELECT * FROM logs WHERE correlation_id = '...'
+```bash
+docker-compose -f .docker/docker-compose.yml logs -f fix-generator-api
 ```
 
-## Security
+## Documentação de Negócio
 
-- **Keycloak** for centralized authentication
-- **Bearer tokens** with Redis cache
-- **HTTPS only** in production
-- **Rate limiting** on API endpoints
-- **SQL injection prevention** via EF Core
-- **CORS** properly configured
-- **Sensitive data** masked in logs
+### Estados de Ordem
 
-## CI/CD Actions
+```
+┌──────────┐
+│Submitted │ Ordem recebida pela API
+└────┬─────┘
+     │ Enviada via FIX para Accumulator
+     ↓
+┌──────────┐
+│ Pending  │ Validação de exposição em progresso
+└────┬─────┘
+     │
+     ├─── Passou validação ──→ ┌──────────┐
+     │                         │ Accepted │ ✓ Ordem aceita
+     │                         └──────────┘
+     │
+     └─── Violou limite ──→ ┌──────────┐
+                            │ Rejected │ ✗ Exposição excedida
+                            └──────────┘
+```
 
-### Build & Test (`build-and-test.yml`)
-Runs on every push and pull request:
-1. ✅ Restore dependencies
-2. ✅ Build solution (Release config)
-3. ✅ Run unit tests (`OrderGenerator.UnitTests`, `OrderAccumulator.UnitTests`)
-4. ✅ Run integration tests (`OrderGenerator.IntegrationTests`, `OrderAccumulator.IntegrationTests`)
-5. ℹ️ SonarQube analysis (commented out, enable as needed)
+### Validações
 
-### Release (`release.yml`)
-Runs on push to `main` branch:
-1. ✅ Build solution in Release config
-2. ✅ Publish standalone executables:
-   - `OrderGenerator.Api` → tar.gz
-   - `OrderAccumulator.Worker` → tar.gz
-3. ✅ Auto-generate semantic tag: `v{YYYYMMDD}-{commit-hash}`
-4. ✅ Create GitHub release with:
-   - Published binaries (ready to run)
-   - `docker-compose.yml` (full local environment)
-   - Dockerfiles for both services
-   - `.env` example configuration
+**Exposição por Símbolo:**
+- Limite: -100M a +100M por símbolo
+- Cálculo: `(Quantidade * Preço) + Exposição Atual`
+- Tipo: Long positivo (compra), Short negativo (venda)
 
-**For Interviewers:** Download the GitHub release to get everything needed to run the system locally!
+**Validações de Pedido:**
+- Símbolo: PETR4, VALE3, VIIA4
+- Quantidade: >= 1
+- Preço: > 0
+- Lado: BUY ou SELL
+- TimeInForce: GTC (Good-Till-Cancel)
 
-## Documentation
-- [C4 Diagrams](docs/C4/) — System architecture visualizations
+### Fluxo Completo
 
-> This repository is a codesh challenge.
+1. Frontend: Usuário preenche formulário
+2. API: Valida estrutura, autentica JWT, persiste Order (status: Submitted)
+3. FIX Initiator: Envia NewOrderSingle para Accumulator
+4. FIX Acceptor: Recebe ordem, calcula exposição
+5. Decision: Compara exposição com limite
+6. Execution: Cria OrderExecution (Accepted/Rejected)
+7. FIX Initiator: Recebe ExecutionReport
+8. API: Atualiza status e notifica Frontend
+9. Frontend: Mostra status em tempo real
 
-## License
+## Diagramas C4
 
-MIT License — See [LICENSE](LICENSE).
+### Contexto do Sistema
+
+```mermaid
+graph TB
+    User["Usuário (Trader)"]
+    Frontend["React Frontend"]
+    API["Order Generator API"]
+    Accumulator["Order Accumulator Worker"]
+    DB["PostgreSQL"]
+    Cache["Redis"]
+    Auth["Keycloak"]
+
+    User -->|Cria Pedido| Frontend
+    Frontend -->|HTTP REST| API
+    API -->|FIX 4.4 Protocol| Accumulator
+    API -->|Read/Write| DB
+    API -->|Token Cache| Cache
+    API -->|Verifica JWT| Auth
+    Accumulator -->|Event Store| DB
+    Accumulator -->|Exposure Cache| Cache
+    
+    classDef external fill:#E1F5FE,stroke:#01579B,stroke-width:2px
+    classDef system fill:#F3E5F5,stroke:#4A148C,stroke-width:2px
+    classDef data fill:#E8F5E9,stroke:#1B5E20,stroke-width:2px
+    
+    class User,Auth external
+    class Frontend,API,Accumulator system
+    class DB,Cache data
+```
+
+### Sequência: Criar Pedido
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Frontend as React<br/>Frontend
+    participant API as Order<br/>Generator
+    participant Fix as FIX<br/>Accumulator
+    participant DB as PostgreSQL
+    participant Cache as Redis
+
+    User->>Frontend: Preenche Form (PETR4, 100, 25.50)
+    Frontend->>API: POST /orders + JWT
+    
+    rect rgb(200, 230, 255)
+        Note over API: Validação
+        API->>DB: Cria Order (Submitted)
+        DB-->>API: Order persisted
+    end
+    
+    rect rgb(255, 230, 200)
+        Note over API,Fix: FIX Protocol
+        API->>Fix: NewOrderSingle
+        Fix->>Cache: GET exposição PETR4
+        Cache-->>Fix: -50M
+        Fix->>Fix: Calcula: 100 * 25.50 = 2550<br/>Nova exposição: -50M + 2550 = -47.45M<br/>Válido? SIM (dentro de [-100M, +100M])
+        Fix->>DB: Cria OrderExecution (Accepted)
+        Fix->>API: ExecutionReport (Accepted)
+        API->>Cache: SET exposição PETR4 = -47.45M
+    end
+    
+    rect rgb(230, 255, 200)
+        Note over API: Update Status
+        API->>DB: Update Order.Status = Accepted
+        API-->>Frontend: JSON (status: Accepted)
+        Frontend-->>User: Mostra ordem aceita
+    end
+```
+
+### Sequência: Rejeição por Exposição
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Frontend as React<br/>Frontend
+    participant API as Order<br/>Generator
+    participant Fix as FIX<br/>Accumulator
+    participant DB as PostgreSQL
+    participant Cache as Redis
+
+    User->>Frontend: Preenche Form (PETR4, 10M, 25.50)
+    Frontend->>API: POST /orders + JWT
+    
+    rect rgb(200, 230, 255)
+        Note over API: Validação
+        API->>DB: Cria Order (Submitted)
+    end
+    
+    rect rgb(255, 230, 200)
+        Note over API,Fix: FIX Protocol
+        API->>Fix: NewOrderSingle
+        Fix->>Cache: GET exposição PETR4
+        Cache-->>Fix: -95M
+        Fix->>Fix: Calcula: 10M * 25.50 = 255M<br/>Nova exposição: -95M + 255M = +160M<br/>Válido? NÃO (excede +100M)
+        Fix->>DB: Cria OrderExecution (Rejected)<br/>Reason: Exposure Limit Exceeded
+        Fix->>API: ExecutionReport (Rejected)
+    end
+    
+    rect rgb(255, 200, 200)
+        Note over API: Update Status
+        API->>DB: Update Order.Status = Rejected<br/>RejectionReason: Exposure Limit Exceeded
+        API-->>Frontend: JSON (status: Rejected, reason: ...)
+        Frontend-->>User: Mostra ordem rejeitada
+    end
+```
+
+## Endpoints da API
+
+### Autenticação
+
+```bash
+POST /api/v1/token/debug
+# Retorna: { "token": "eyJ..." }
+# Nota: Endpoint de debug, sem autenticação requerida
+```
+
+### Pedidos
+
+```bash
+POST /api/v1/orders
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "symbol": "PETR4",
+  "quantity": 100,
+  "price": 25.50,
+  "side": "BUY",
+  "orderType": "LIMIT",
+  "timeInForce": "GTC"
+}
+
+# Response:
+{
+  "orderId": "550e8400-e29b-41d4-a716-446655440000",
+  "symbol": "PETR4",
+  "side": "BUY",
+  "quantity": 100,
+  "price": 25.50,
+  "status": "Accepted",
+  "createdAt": "2026-07-15T23:52:00Z",
+  "rejectionReason": null
+}
+```
+
+```bash
+GET /api/v1/orders
+Authorization: Bearer <token>
+
+# Response:
+{
+  "data": [
+    { "orderId": "...", "symbol": "PETR4", ... },
+    { "orderId": "...", "symbol": "VALE3", ... }
+  ],
+  "pageNumber": 1,
+  "pageSize": 50,
+  "totalCount": 2
+}
+```
+
+### Health Checks
+
+```bash
+GET /api/v1/health
+
+# Response:
+{
+  "status": "Healthy",
+  "checks": {
+    "PostgreSQL": "Healthy",
+    "Redis": "Healthy"
+  }
+}
+```
+
+## Observabilidade
+
+### Structured Logging
+
+Logs estruturados com correlação via OpenTelemetry:
+
+```
+[2026-07-15 23:52:00] INF Received NewOrderSingle: ClOrdID=ORD123
+  TraceId: 0144975ac6ed77b18ff787b8b067bd22
+  SpanId: 3d5de17006805895
+  Symbol: PETR4
+  Quantity: 100
+  Price: 25.50
+```
+
+### Métricas e Traces
+
+- Activities criadas por NewOrderSingle e ExecutionReport
+- Instrumentação SQL (queries com duração)
+- Instrumentação AspNetCore (endpoints com latência)
+- Console Exporter para desenvolvimento
+
+## Licença
+
+Este projeto está licenciado sob a licença MIT - veja o arquivo [LICENSE](LICENSE) para detalhes.
+
+## Autor
+
+Desenvolvido como amostra de arquitetura em mercados de capitais com protocolo FIX.

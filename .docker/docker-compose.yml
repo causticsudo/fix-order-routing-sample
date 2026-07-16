@@ -34,17 +34,6 @@ services:
     networks:
       - fix-network
 
-  jaeger:
-    image: jaegertracing/all-in-one:latest
-    container_name: fix-jaeger
-    environment:
-      COLLECTOR_ZIPKIN_HTTP_PORT: 9411
-    ports:
-      - "6831:6831/udp"
-      - "16686:16686"
-    networks:
-      - fix-network
-
   keycloak:
     image: quay.io/keycloak/keycloak:latest
     container_name: fix-keycloak
@@ -80,9 +69,6 @@ services:
       Keycloak__Authority: http://keycloak:8080/realms/fix-order-routing
       Keycloak__ClientId: fix-order-generator
       Keycloak__ClientSecret: secret
-      Jaeger__ServiceName: OrderGenerator
-      Jaeger__Host: jaeger
-      Jaeger__Port: 6831
       OrderAccumulator__Host: order-accumulator-worker
       OrderAccumulator__Port: 9000
     ports:
@@ -107,9 +93,6 @@ services:
       ConnectionStrings__DefaultConnection: "Host=postgresql;Port=5432;Database=order_accumulator;Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}"
       Redis__Host: redis
       Redis__Port: 6379
-      Jaeger__ServiceName: OrderAccumulator
-      Jaeger__Host: jaeger
-      Jaeger__Port: 6831
       FIX__AcceptorHost: 0.0.0.0
       FIX__AcceptorPort: 9000
     ports:
@@ -119,6 +102,18 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    networks:
+      - fix-network
+
+  frontend:
+    build:
+      context: ../
+      dockerfile: .docker/Dockerfile.frontend
+    container_name: fix-frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - order-generator-api
     networks:
       - fix-network
 
