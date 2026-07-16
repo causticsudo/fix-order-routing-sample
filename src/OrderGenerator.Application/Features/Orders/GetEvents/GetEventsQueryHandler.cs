@@ -6,7 +6,7 @@ using OrderGenerator.Domain.Aggregates;
 
 namespace OrderGenerator.Application.Features.Orders.GetEvents;
 
-public class GetEventsQueryHandler : IRequestHandler<GetEventsQuery, PagedResponse<OrderEventResponse>>
+public class GetEventsQueryHandler : IRequestHandler<GetEventsQuery, PagedResponse<OrderEventDto>>
 {
     private readonly IOrderEventRepository _repository;
 
@@ -15,7 +15,7 @@ public class GetEventsQueryHandler : IRequestHandler<GetEventsQuery, PagedRespon
         _repository = repository;
     }
 
-    public async Task<PagedResponse<OrderEventResponse>> Handle(GetEventsQuery request, CancellationToken cancellationToken)
+    public async Task<PagedResponse<OrderEventDto>> Handle(GetEventsQuery request, CancellationToken cancellationToken)
     {
         var validation = await new GetEventsQueryValidator().ValidateAsync(request, cancellationToken);
         if (!validation.IsValid)
@@ -25,16 +25,16 @@ public class GetEventsQueryHandler : IRequestHandler<GetEventsQuery, PagedRespon
 
         var (items, totalCount) = await _repository.GetPagedAsync(request.Page, request.PageSize, request.OrderId, cancellationToken);
 
-        var responseItems = items.Select(MapToResponse).ToList();
+        var responseItems = items.Select(MapToDto).ToList();
 
-        return new PagedResponse<OrderEventResponse>(responseItems, request.Page, request.PageSize, totalCount);
+        return new PagedResponse<OrderEventDto>(responseItems, request.Page, request.PageSize, totalCount);
     }
 
-    private static OrderEventResponse MapToResponse(OrderEvent orderEvent) => new(
-        orderEvent.Id,
-        orderEvent.OrderId,
-        orderEvent.CorrelationKey,
-        orderEvent.EventType.ToString(),
-        orderEvent.Details,
-        orderEvent.OccurredAt);
+    private static OrderEventDto MapToDto(OrderEvent orderEvent) => new(
+        EventId: orderEvent.Id,
+        OrderId: orderEvent.OrderId,
+        CorrelationKey: orderEvent.CorrelationKey,
+        Status: orderEvent.EventType.ToString(),
+        Timestamp: orderEvent.OccurredAt,
+        Reason: orderEvent.Details);
 }

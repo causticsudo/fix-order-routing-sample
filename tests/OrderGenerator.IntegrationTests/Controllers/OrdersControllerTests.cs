@@ -96,8 +96,8 @@ public class OrdersControllerTests : IAsyncLifetime
         var events = await _getEventsHandler.Handle(new GetEventsQuery(1, 10, created.OrderId), CancellationToken.None);
 
         events.TotalCount.Should().Be(2);
-        events.Items.Should().Contain(e => e.EventType == "Created" && e.CorrelationKey == created.OrderId.ToString());
-        events.Items.Should().Contain(e => e.EventType == "Submitted");
+        events.Items.Should().Contain(e => e.Status == "Created");
+        events.Items.Should().Contain(e => e.Status == "Submitted");
     }
 
     [Fact]

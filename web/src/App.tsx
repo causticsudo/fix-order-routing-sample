@@ -1,5 +1,34 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import './App.css'
+
+class ErrorBoundary extends React.Component<any, any> {
+  constructor(props: any) {
+    super(props)
+    this.state = { hasError: false, error: null }
+  }
+
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error }
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error('Error caught by boundary:', error, errorInfo)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '20px', color: 'red' }}>
+          <h2>Algo deu errado!</h2>
+          <p>{this.state.error?.message}</p>
+          <button onClick={() => window.location.reload()}>Recarregar</button>
+        </div>
+      )
+    }
+
+    return this.props.children
+  }
+}
 
 interface Order {
   orderId: string
@@ -12,14 +41,10 @@ interface Order {
   rejectionReason?: string
 }
 
-interface OrderDetail extends Order {
-  orderType: string
-  timeInForce: string
-}
-
 interface OrderEvent {
   eventId: string
   orderId: string
+  correlationKey?: string
   status: string
   timestamp: string
   reason?: string
@@ -40,9 +65,38 @@ interface HealthStatus {
 
 const API_BASE = 'http://localhost:5000/api/v1'
 
+const SYMBOLS = ['PETR4', 'VALE3', 'VIIA4'] as const
+
+const EVENT_LABELS: Record<string, string> = {
+  created: 'Criado',
+  submitted: 'Enviado',
+  accepted: 'Aceito',
+  rejected: 'Rejeitado',
+}
+
+function eventLabel(status: string): string {
+  return EVENT_LABELS[status?.toLowerCase()] ?? status
+}
+
+function extractError(data: any): string | null {
+  if (!data) return null
+  if (Array.isArray(data.errors) && data.errors.length) return data.errors.join(', ')
+  if (typeof data.error === 'string') return data.error
+  if (typeof data === 'string') return data
+  return null
+}
+
+async function parseResponse(res: Response, fallback: string) {
+  const data = await res.json().catch(() => null)
+  if (!res.ok) {
+    throw new Error(extractError(data) || `${fallback} (HTTP ${res.status})`)
+  }
+  return data
+}
+
 async function getDebugToken(): Promise<string> {
   const res = await fetch(`${API_BASE}/token/debug`, { method: 'POST' })
-  const data = await res.json()
+  const data = await parseResponse(res, 'Falha ao obter token de autenticação')
   return data.token
 }
 
@@ -55,41 +109,53 @@ async function createOrder(token: string, order: any) {
     },
     body: JSON.stringify(order),
   })
-  return res.json()
+  return parseResponse(res, 'Erro ao criar pedido')
 }
 
 async function getOrders(token: string) {
-  const res = await fetch(`${API_BASE}/orders`, {
+  const res = await fetch(`${API_BASE}/orders?page=1&pageSize=50`, {
     headers: { 'Authorization': `Bearer ${token}` },
   })
-  return res.json()
+  const data = await parseResponse(res, 'Erro ao carregar pedidos')
+  return {
+    data: data.items || [],
+  }
 }
 
 async function getOrderDetail(token: string, orderId: string) {
   const res = await fetch(`${API_BASE}/orders/${orderId}`, {
     headers: { 'Authorization': `Bearer ${token}` },
   })
-  return res.json()
+  return parseResponse(res, 'Erro ao carregar detalhes do pedido')
 }
 
 async function getOrderEvents(token: string, orderId: string) {
-  const res = await fetch(`${API_BASE}/orders/events?orderId=${orderId}`, {
+  const res = await fetch(`${API_BASE}/orders/events?orderId=${orderId}&page=1&pageSize=100`, {
     headers: { 'Authorization': `Bearer ${token}` },
   })
-  return res.json()
+  const data = await parseResponse(res, 'Erro ao carregar eventos do pedido')
+  return {
+    data: data.items || [],
+  }
 }
 
 async function getExposure(token: string, symbol: string): Promise<Exposure> {
-  const res = await fetch(`${API_BASE}/reports/exposure?symbol=${symbol}`, {
+  const res = await fetch(`${API_BASE}/report/exposure?symbol=${symbol}`, {
     headers: { 'Authorization': `Bearer ${token}` },
   })
-  const data = await res.json()
-  return data.data
+  const data = await parseResponse(res, 'Erro ao carregar exposure')
+  const exposure = Array.isArray(data) ? data[0] : data
+  return {
+    symbol: exposure?.symbol ?? symbol,
+    currentExposure: exposure?.currentExposure ?? 0,
+    limitMin: exposure?.limitMin ?? -100_000_000,
+    limitMax: exposure?.limitMax ?? 100_000_000,
+  }
 }
 
 async function getHealth(): Promise<HealthStatus> {
   const res = await fetch(`${API_BASE}/health`)
-  return res.json()
+  return parseResponse(res, 'Erro ao consultar health')
 }
 
 function App() {
@@ -101,11 +167,11 @@ function App() {
   const [price, setPrice] = useState(25.5)
   const [side, setSide] = useState<'BUY' | 'SELL'>('BUY')
   const [currentView, setCurrentView] = useState<'orders' | 'exposure'>('orders')
-  const [selectedOrder, setSelectedOrder] = useState<OrderDetail | null>(null)
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [orderEvents, setOrderEvents] = useState<OrderEvent[]>([])
-  const [exposure, setExposure] = useState<Exposure | null>(null)
-  const [exposureSymbol, setExposureSymbol] = useState('PETR4')
+  const [exposures, setExposures] = useState<Exposure[]>([])
   const [health, setHealth] = useState<HealthStatus | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
 
   useEffect(() => {
     initToken()
@@ -116,17 +182,17 @@ function App() {
 
     const interval = setInterval(() => {
       loadOrders(token)
-      loadExposure(token, exposureSymbol)
+      loadExposures(token)
       loadHealth()
     }, 5000)
 
     return () => clearInterval(interval)
-  }, [token, exposureSymbol])
+  }, [token])
 
   useEffect(() => {
     if (token) {
       loadOrders(token)
-      loadExposure(token, exposureSymbol)
+      loadExposures(token)
       loadHealth()
     }
   }, [token])
@@ -149,12 +215,22 @@ function App() {
     }
   }
 
-  const loadExposure = async (t: string, sym: string) => {
+  const loadExposures = async (t: string) => {
     try {
-      const data = await getExposure(t, sym)
-      setExposure(data)
+      const data = await Promise.all(SYMBOLS.map((sym) => getExposure(t, sym)))
+      setExposures(data)
     } catch (e) {
-      console.error('Failed to load exposure:', e)
+      console.error('Failed to load exposures:', e)
+      setExposures((prev) =>
+        prev.length
+          ? prev
+          : SYMBOLS.map((sym) => ({
+              symbol: sym,
+              currentExposure: 0,
+              limitMin: -100_000_000,
+              limitMax: 100_000_000,
+            }))
+      )
     }
   }
 
@@ -170,23 +246,39 @@ function App() {
   const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!token) return
+    setFormError(null)
+
+    const priceVal = Number(price)
+    const qtyVal = Number(quantity)
+
+    if (Number.isNaN(qtyVal) || qtyVal <= 0 || qtyVal > 99999) {
+      setFormError('Quantidade deve ser um número entre 1 e 99999')
+      return
+    }
+    if (Number.isNaN(priceVal) || priceVal <= 0 || priceVal > 999.99) {
+      setFormError('Preço deve ser um número entre 0.01 e 999.99')
+      return
+    }
+    if (Math.round(priceVal * 100) !== priceVal * 100) {
+      setFormError('Preço deve ter no máximo 2 casas decimais')
+      return
+    }
 
     setLoading(true)
     try {
       const newOrder = await createOrder(token, {
         symbol,
-        quantity: parseInt(quantity.toString()),
-        price: parseFloat(price.toString()),
+        quantity: qtyVal,
+        price: priceVal,
         side,
-        orderType: 'LIMIT',
-        timeInForce: 'GTC',
       })
 
-      setOrders([...orders, newOrder])
-      setQuantity(100)
-      setPrice(25.5)
-    } catch (e) {
+      if (newOrder?.orderId) {
+        setOrders([newOrder, ...orders])
+      }
+    } catch (e: any) {
       console.error('Failed to create order:', e)
+      setFormError(e?.message || 'Erro ao criar pedido')
     } finally {
       setLoading(false)
     }
@@ -197,15 +289,15 @@ function App() {
     try {
       const detail = await getOrderDetail(token, order.orderId)
       const events = await getOrderEvents(token, order.orderId)
-      setSelectedOrder(detail.data || detail)
-      setOrderEvents(events.data || [])
+      const detailData = detail.data || detail || order
+      const eventsData = Array.isArray(events) ? events : (events.data || [])
+      setSelectedOrder(detailData)
+      setOrderEvents(eventsData)
     } catch (e) {
       console.error('Failed to load order details:', e)
+      alert('Erro ao carregar detalhes do pedido')
+      setSelectedOrder(null)
     }
-  }
-
-  const handleSymbolChange = (sym: string) => {
-    setExposureSymbol(sym)
   }
 
   const getExposureColor = (exposure: Exposure) => {
@@ -269,9 +361,11 @@ function App() {
                 <label>Quantidade</label>
                 <input
                   type="number"
-                  value={quantity}
-                  onChange={(e) => setQuantity(parseInt(e.target.value))}
+                  value={Number.isNaN(quantity) ? '' : quantity}
+                  onChange={(e) => setQuantity(e.target.valueAsNumber)}
                   min="1"
+                  max="99999"
+                  step="1"
                 />
               </div>
 
@@ -280,11 +374,14 @@ function App() {
                 <input
                   type="number"
                   step="0.01"
-                  value={price}
-                  onChange={(e) => setPrice(parseFloat(e.target.value))}
-                  min="0"
+                  value={Number.isNaN(price) ? '' : price}
+                  onChange={(e) => setPrice(e.target.valueAsNumber)}
+                  min="0.01"
+                  max="999.99"
                 />
               </div>
+
+              {formError && <div className="form-error">{formError}</div>}
 
               <button type="submit" disabled={loading}>
                 {loading ? 'Enviando...' : 'Criar Pedido'}
@@ -330,48 +427,36 @@ function App() {
 
       {currentView === 'exposure' && (
         <div className="exposure-view">
-          <div className="exposure-symbols">
-            {['PETR4', 'VALE3', 'VIIA4'].map((sym) => (
-              <button
-                key={sym}
-                className={`symbol-tab ${exposureSymbol === sym ? 'active' : ''}`}
-                onClick={() => handleSymbolChange(sym)}
-              >
-                {sym}
-              </button>
-            ))}
+          <div className="exposure-grid">
+            {exposures.map((exp) => {
+              const usage = Math.min(100, (Math.abs(exp.currentExposure) / ((exp.limitMax - exp.limitMin) / 2)) * 100)
+              return (
+                <div key={exp.symbol} className="exposure-card">
+                  <h2>{exp.symbol}</h2>
+                  <div className="exposure-content">
+                    <div className="metric">
+                      <label>Current Exposure</label>
+                      <div className="value">{exp.currentExposure.toFixed(2)}</div>
+                    </div>
+                    <div className="metric">
+                      <label>Limit Range</label>
+                      <div className="value">{exp.limitMin.toFixed(0)} to {exp.limitMax.toFixed(0)}</div>
+                    </div>
+                    <div className="metric">
+                      <label>Usage</label>
+                      <div className="usage-bar">
+                        <div
+                          className="usage-fill"
+                          style={{ width: `${usage}%`, backgroundColor: getExposureColor(exp) }}
+                        ></div>
+                      </div>
+                      <div className="usage-text">{usage.toFixed(1)}%</div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
-
-          {exposure && (
-            <div className="exposure-card">
-              <h2>{exposure.symbol} Exposure Dashboard</h2>
-              <div className="exposure-content">
-                <div className="metric">
-                  <label>Current Exposure</label>
-                  <div className="value">{exposure.currentExposure.toFixed(2)}</div>
-                </div>
-                <div className="metric">
-                  <label>Limit Range</label>
-                  <div className="value">{exposure.limitMin.toFixed(0)} to {exposure.limitMax.toFixed(0)}</div>
-                </div>
-                <div className="metric">
-                  <label>Usage</label>
-                  <div className="usage-bar">
-                    <div
-                      className="usage-fill"
-                      style={{
-                        width: `${Math.min(100, (Math.abs(exposure.currentExposure) / ((exposure.limitMax - exposure.limitMin) / 2)) * 100)}%`,
-                        backgroundColor: getExposureColor(exposure)
-                      }}
-                    ></div>
-                  </div>
-                  <div className="usage-text">
-                    {((Math.abs(exposure.currentExposure) / ((exposure.limitMax - exposure.limitMin) / 2)) * 100).toFixed(1)}%
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -384,29 +469,34 @@ function App() {
             </div>
             <div className="modal-content">
               <div className="order-info">
+                <div><strong>ID:</strong> {selectedOrder.orderId}</div>
                 <div><strong>Symbol:</strong> {selectedOrder.symbol}</div>
                 <div><strong>Side:</strong> {selectedOrder.side}</div>
                 <div><strong>Quantity:</strong> {selectedOrder.quantity}</div>
                 <div><strong>Price:</strong> R$ {selectedOrder.price.toFixed(2)}</div>
+                <div><strong>Total:</strong> R$ {(selectedOrder.price * selectedOrder.quantity).toFixed(2)}</div>
                 <div><strong>Status:</strong> {selectedOrder.status}</div>
-                <div><strong>Type:</strong> {selectedOrder.orderType}</div>
-                <div><strong>TIF:</strong> {selectedOrder.timeInForce}</div>
                 <div><strong>Created:</strong> {new Date(selectedOrder.createdAt).toLocaleString('pt-BR')}</div>
                 {selectedOrder.rejectionReason && (
                   <div><strong>Rejection:</strong> {selectedOrder.rejectionReason}</div>
                 )}
               </div>
               <div className="events-timeline">
-                <h3>Events</h3>
+                <h3>Histórico de Eventos ({orderEvents.length})</h3>
                 {orderEvents.length === 0 ? (
-                  <p className="empty">No events</p>
+                  <p className="empty">Nenhum evento registrado</p>
                 ) : (
                   <div className="timeline">
                     {orderEvents.map((event) => (
-                      <div key={event.eventId} className="event">
-                        <div className="event-status">{event.status}</div>
-                        <div className="event-time">{new Date(event.timestamp).toLocaleTimeString('pt-BR')}</div>
-                        {event.reason && <div className="event-reason">{event.reason}</div>}
+                      <div key={event.eventId} className={`event event-${event.status.toLowerCase()}`}>
+                        <div className="event-head">
+                          <span className="event-status">{eventLabel(event.status)}</span>
+                          <span className="event-time">{new Date(event.timestamp).toLocaleString('pt-BR')}</span>
+                        </div>
+                        {event.correlationKey && (
+                          <div className="event-corr"><strong>ClOrdID:</strong> {event.correlationKey}</div>
+                        )}
+                        <div className="event-reason">{event.reason || '—'}</div>
                       </div>
                     ))}
                   </div>
@@ -420,4 +510,10 @@ function App() {
   )
 }
 
-export default App
+const AppWithErrorBoundary = () => (
+  <ErrorBoundary>
+    <App />
+  </ErrorBoundary>
+)
+
+export default AppWithErrorBoundary
