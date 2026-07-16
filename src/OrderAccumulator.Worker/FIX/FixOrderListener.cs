@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using FixOrderRouting.SharedKernel.Constants;
+using FixOrderRouting.SharedKernel.Diagnostics;
 using FixOrderRouting.SharedKernel.Enums;
 using OrderAccumulator.Domain.Abstractions;
 using OrderAccumulator.Domain.Aggregates;
@@ -57,12 +59,15 @@ public class FixOrderListener : MessageCracker, IApplication
 
     public void OnMessage(NewOrderSingle newOrderSingle, SessionID sessionId)
     {
+        var clOrdId = newOrderSingle.GetField(new ClOrdID()).Value;
+        var symbolStr = newOrderSingle.GetField(new Symbol()).Value.ToString();
+
+        using var activity = FixActivitySource.StartReceiveNewOrderSingle(clOrdId, symbolStr);
+
         try
         {
-            var clOrdId = newOrderSingle.GetField(new ClOrdID()).Value;
             _logger.LogInformation("Received NewOrderSingle: ClOrdID={ClOrdID}", clOrdId);
 
-            var symbolStr = newOrderSingle.GetField(new Symbol()).Value.ToString();
             var sideChar = newOrderSingle.GetField(new Side()).Value.ToString();
             var quantityStr = newOrderSingle.GetField(new OrderQty()).Value.ToString();
             var priceStr = newOrderSingle.GetField(new Price()).Value.ToString();
@@ -83,6 +88,11 @@ public class FixOrderListener : MessageCracker, IApplication
                 var exposureCache = scope.ServiceProvider.GetRequiredService<IExposureCache>();
 
                 var canAccept = exposureCalculator.CanAcceptOrderAsync(symbol, side, qty, prc).GetAwaiter().GetResult();
+                var exposure = canAccept
+                    ? exposureCalculator.GetExposureAsync(symbolStr).GetAwaiter().GetResult()
+                    : 0m;
+
+                FixActivitySource.RecordExposureValidation(activity, canAccept, exposure, BusinessConstants.Orders.ExposureLimit);
 
                 OrderExecution execution;
                 if (canAccept)
@@ -101,7 +111,6 @@ public class FixOrderListener : MessageCracker, IApplication
 
                 if (canAccept)
                 {
-                    var exposure = exposureCalculator.GetExposureAsync(symbolStr).GetAwaiter().GetResult();
                     exposureCache.SetExposureAsync(symbolStr, exposure).GetAwaiter().GetResult();
                     _logger.LogInformation("Updated exposure: Symbol={Symbol}, Exposure={Exposure}", symbolStr, exposure);
                 }
@@ -112,12 +121,17 @@ public class FixOrderListener : MessageCracker, IApplication
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error processing NewOrderSingle");
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             throw;
         }
     }
 
     private void SendExecutionReport(OrderExecution execution, SessionID sessionId)
     {
+        var status = execution.Status == OrderExecutionStatus.Accepted ? "Accepted" : "Rejected";
+        using var activity = FixActivitySource.StartSendExecutionReport(
+            execution.ClOrdId, status, execution.RejectionReason);
+
         try
         {
             var execReport = new ExecutionReport();
@@ -153,6 +167,7 @@ public class FixOrderListener : MessageCracker, IApplication
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error sending ExecutionReport for ClOrdID={ClOrdID}", execution.ClOrdId);
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
         }
     }
 }
