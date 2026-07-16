@@ -88,11 +88,6 @@ public class FixOrderListener : MessageCracker, IApplication
                 var exposureCache = scope.ServiceProvider.GetRequiredService<IExposureCache>();
 
                 var canAccept = exposureCalculator.CanAcceptOrderAsync(symbol, side, qty, prc).GetAwaiter().GetResult();
-                var exposure = canAccept
-                    ? exposureCalculator.GetExposureAsync(symbolStr).GetAwaiter().GetResult()
-                    : 0m;
-
-                FixActivitySource.RecordExposureValidation(activity, canAccept, exposure, BusinessConstants.Orders.ExposureLimit);
 
                 OrderExecution execution;
                 if (canAccept)
@@ -108,6 +103,12 @@ public class FixOrderListener : MessageCracker, IApplication
                 }
 
                 repository.AddAsync(execution).GetAwaiter().GetResult();
+
+                var exposure = canAccept
+                    ? exposureCalculator.GetExposureAsync(symbolStr).GetAwaiter().GetResult()
+                    : 0m;
+
+                FixActivitySource.RecordExposureValidation(activity, canAccept, exposure, BusinessConstants.Orders.ExposureLimit);
 
                 if (canAccept)
                 {
