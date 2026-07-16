@@ -27,7 +27,6 @@ spec:
     - postgresql
     - redis
     - keycloak
-    - jaeger
 
 ---
 
@@ -70,19 +69,5 @@ metadata:
 
 spec:
   type: cache
-  owner: trading-infrastructure
-  system: fix-order-routing
-
----
-
-apiVersion: backstage.io/v1alpha1
-kind: Resource
-metadata:
-  name: jaeger-apm
-  title: Jaeger APM
-  description: Distributed tracing and observability platform
-
-spec:
-  type: monitoring
   owner: trading-infrastructure
   system: fix-order-routing
