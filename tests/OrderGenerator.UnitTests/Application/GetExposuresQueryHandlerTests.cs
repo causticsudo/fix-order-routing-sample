@@ -27,7 +27,7 @@ public class GetExposuresQueryHandlerTests
 
         response.Should().HaveCount(1);
         response[0].Symbol.Should().Be("PETR4");
-        response[0].Exposure.Should().Be(1500.50m);
+        response[0].CurrentExposure.Should().Be(1500.50m);
         _readerMock.Verify(r => r.GetAllAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -45,8 +45,8 @@ public class GetExposuresQueryHandlerTests
         var response = await _sut.Handle(new GetExposuresQuery(null), CancellationToken.None);
 
         response.Should().HaveCount(2);
-        response.Should().ContainSingle(e => e.Symbol == "PETR4" && e.Exposure == 1000m);
-        response.Should().ContainSingle(e => e.Symbol == "VALE3" && e.Exposure == -500m);
+        response.Should().ContainSingle(e => e.Symbol == "PETR4" && e.CurrentExposure == 1000m);
+        response.Should().ContainSingle(e => e.Symbol == "VALE3" && e.CurrentExposure == -500m);
         _readerMock.Verify(r => r.GetBySymbolAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
