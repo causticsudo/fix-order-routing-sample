@@ -92,6 +92,7 @@ Sistema de roteamento de pedidos para mercados de capitais utilizando protocolo 
 - Keycloak (autenticação)
 
 ## Como Rodar
+![Order Routing Demo](demo-order-routing.gif)
 
 ### Pré-requisitos
 
