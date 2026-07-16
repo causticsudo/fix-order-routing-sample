@@ -3,13 +3,17 @@ using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using OrderGenerator.Application.Abstractions;
 using OrderGenerator.Application.Features.Orders.CreateOrder;
 using OrderGenerator.Application.Services;
 using OrderGenerator.Domain.Abstractions;
 using OrderGenerator.Infra.Caching;
 using OrderGenerator.Infra.Persistence;
+using FixOrderRouting.SharedKernel.Diagnostics;
 using Serilog;
+using Serilog.Enrichers.OpenTelemetry;
 using StackExchange.Redis;
 using System.Text;
 
@@ -21,19 +25,58 @@ builder.Host.UseSerilog((_, logger) =>
     logger
         .MinimumLevel.Debug()
         .WriteTo.Console()
-        .Enrich.FromLogContext();
+        .Enrich.FromLogContext()
+        .Enrich.WithOpenTelemetryTraceId()
+        .Enrich.WithOpenTelemetrySpanId();
 });
+#endregion
+
+#region Configuration
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found");
+
+var redisHost = builder.Configuration["Redis:Host"] ?? "localhost";
+var redisPort = builder.Configuration["Redis:Port"] ?? "6379";
+
+var serviceName = builder.Configuration["Service:Name"] ?? "OrderGenerator";
+#endregion
+
+#region Observability
+builder.Services.AddOpenTelemetry()
+    .WithTracing(tracerProvider => tracerProvider
+        .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService(serviceName))
+        .AddAspNetCoreInstrumentation()
+        .AddSqlClientInstrumentation()
+        .AddSource(FixActivitySource.Instance.Name)
+        .AddConsoleExporter());
 #endregion
 
 #region Services
 builder.Services.AddControllers();
-builder.Services.AddHealthChecks();
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowReact", policy =>
+    {
+        policy
+            .WithOrigins("http://localhost:5173", "http://localhost:3000")
+            .AllowAnyMethod()
+            .AllowAnyHeader();
+    });
+});
+
+builder.Services.AddHealthChecks()
+    .AddNpgSql(
+        connectionString,
+        name: "PostgreSQL",
+        tags: new[] { "db", "sql" })
+    .AddRedis(
+        $"{redisHost}:{redisPort}",
+        name: "Redis",
+        tags: new[] { "cache" });
 #endregion
 
 #region Database
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found");
-
 builder.Services.AddDbContext<OrderGeneratorDbContext>(options =>
     options.UseNpgsql(connectionString));
 #endregion
@@ -53,8 +96,6 @@ builder.Services.AddScoped<IOrderEventRepository, OrderEventRepository>();
 #endregion
 
 #region Redis
-var redisHost = builder.Configuration["Redis:Host"] ?? "localhost";
-var redisPort = builder.Configuration["Redis:Port"] ?? "6379";
 builder.Services.AddSingleton<IConnectionMultiplexer>(
     ConnectionMultiplexer.Connect($"{redisHost}:{redisPort}"));
 builder.Services.AddSingleton<IExposureReader, RedisExposureReader>();
@@ -100,6 +141,7 @@ using (var scope = app.Services.CreateScope())
 
 #region Middleware
 app.UseHttpsRedirection();
+app.UseCors("AllowReact");
 app.UseAuthentication();
 app.UseAuthorization();
 #endregion
